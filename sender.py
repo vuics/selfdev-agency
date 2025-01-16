@@ -2,6 +2,13 @@ from dataclasses import dataclass
 from autogen_core import DefaultTopicId, MessageContext, RoutedAgent, default_subscription, message_handler
 import asyncio
 from autogen_ext.runtimes.grpc import GrpcWorkerAgentRuntime
+from dotenv import load_dotenv
+import os
+import json
+
+
+load_dotenv()
+host_address = os.getenv("HOST_ADDRESS", "localhost:50051")
 
 
 @dataclass
@@ -17,21 +24,22 @@ class MyAgent(RoutedAgent):
         self._counter = 0
 
     @message_handler
-    async def my_message_handler(self, message: MyMessage, ctx: MessageContext) -> None:
+    async def my_message_handler(self, message: MyMessage,
+                                 ctx: MessageContext) -> None:
         self._counter += 1
         if self._counter > 5:
             return
         content = f"{self._name}: Hello x {self._counter}"
         print(content)
-        await self.publish_message(MyMessage(content=content), DefaultTopicId())
+        await self.publish_message(MyMessage(content=content),
+                                   DefaultTopicId())
 
 async def main():
     # print('sleep 5')
     # await asyncio.sleep(5)
     try:
       print('init sender')
-      # worker2 = GrpcWorkerAgentRuntime(host_address="localhost:50051")
-      worker2 = GrpcWorkerAgentRuntime(host_address="selfdev-agency-prod:50051")
+      worker2 = GrpcWorkerAgentRuntime(host_address=host_address)
       print('sender connected')
       worker2.start()
       print('sender started')

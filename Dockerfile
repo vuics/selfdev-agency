@@ -10,10 +10,12 @@ RUN apt-get update --yes && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/app/
+COPY setup.py ./
+RUN pip install .
+
 COPY *.py ./
 COPY README.md ./
 COPY exec-*.sh ./
-RUN pip install .
 
 # RUN mkdir -p /opt/ssl/ && openssl req -x509 -newkey rsa:4096 -keyout /opt/ssl/tls.key -out /opt/ssl/tls.crt -days 9999 -nodes -subj "/CN=localhost"
 

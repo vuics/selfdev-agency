@@ -26,27 +26,42 @@ class MyAgent(RoutedAgent):
         await self.publish_message(MyMessage(content=content), DefaultTopicId())
 
 async def main():
+    # print('sleep 5')
+    # await asyncio.sleep(5)
+    try:
+      print('init sender')
+      # worker2 = GrpcWorkerAgentRuntime(host_address="localhost:50051")
+      worker2 = GrpcWorkerAgentRuntime(host_address="selfdev-agency-prod:50051")
+      print('sender connected')
+      worker2.start()
+      print('sender started')
+      await MyAgent.register(worker2, "sender", lambda: MyAgent("worker2"))
+      print('sender registered')
+    except Exception as err:
+      print('sender setup error:', err)
 
-    # worker1 = GrpcWorkerAgentRuntime(host_address="localhost:50051")
-    # worker1.start()
-    # await MyAgent.register(worker1, "worker1", lambda: MyAgent("worker1"))
-  
-    worker2 = GrpcWorkerAgentRuntime(host_address="localhost:50051")
-    worker2.start()
-    await MyAgent.register(worker2, "sender", lambda: MyAgent("worker2"))
-  
-    await worker2.publish_message(MyMessage(content="Hello!"), DefaultTopicId())
-  
-    # Let the agents run for a while.
+    await worker2.publish_message(MyMessage(content="Hello1!"), DefaultTopicId())
+    print('message published 1')
+    await asyncio.sleep(1)
+    await worker2.publish_message(MyMessage(content="Hello2!"), DefaultTopicId())
+    print('message published 2')
+    await asyncio.sleep(2)
+    await worker2.publish_message(MyMessage(content="Hello3!"), DefaultTopicId())
+    print('message published 3')
+    await asyncio.sleep(4)
+    await worker2.publish_message(MyMessage(content="Hello4!"), DefaultTopicId())
+    print('message published 4')
+    await asyncio.sleep(8)
+    await worker2.publish_message(MyMessage(content="Hello5!"), DefaultTopicId())
+    print('message published 5')
+
     # await asyncio.sleep(60)
-  
-  
-    # await worker1.stop()
+
     await worker2.stop()
-  
-    # To keep the worker running until a termination signal is received (e.g., SIGTERM).
     # await worker1.stop_when_signal()
-    #
-if __name__ ==  '__main__':
+    print('sender stopped')
+
+
+if __name__ == '__main__':
     asyncio.run(main())
 

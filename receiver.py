@@ -27,27 +27,24 @@ class MyAgent(RoutedAgent):
 
 
 async def main():
-    worker1 = GrpcWorkerAgentRuntime(host_address="localhost:50051")
-    worker1.start()
-    await MyAgent.register(worker1, "receiver", lambda: MyAgent("worker1"))
+    # print('sleep 5')
+    # await asyncio.sleep(5)
+    try:
+      print('init receiver')
+      # worker1 = GrpcWorkerAgentRuntime(host_address="localhost:50051")
+      worker1 = GrpcWorkerAgentRuntime(host_address="selfdev-agency-prod:50051")
+      print('receiver connected')
+      worker1.start()
+      print('receiver started')
+      await MyAgent.register(worker1, "receiver", lambda: MyAgent("worker1"))
+      print('receiver registered')
+    except Exception as err:
+      print('sender setup error:', err)
 
-    # worker2 = GrpcWorkerAgentRuntime(host_address="localhost:50051")
-    # worker2.start()
-    # await MyAgent.register(worker2, "sender2", lambda: MyAgent("worker2"))
-
-    # await worker2.publish_message(MyMessage(content="Hello!"), DefaultTopicId())
-
-    # Let the agents run for a while.
-    # await asyncio.sleep(60)
-
-    # await worker1.stop()
-    # await worker2.stop()
-
-    # To keep the worker running until a termination signal is received (e.g., SIGTERM).
     await worker1.stop_when_signal()
+    print('receiver stopped')
 
 
-if __name__ ==  '__main__':
+if __name__ == '__main__':
     asyncio.run(main())
-
 

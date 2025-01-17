@@ -7,6 +7,8 @@ import sys
 import asyncio
 import threading
 import queue
+import time
+import re
 from dataclasses import dataclass
 
 from dotenv import load_dotenv
@@ -43,6 +45,8 @@ PORT = int(os.getenv("PORT", "6699"))
 DEBUG = str_to_bool(os.getenv("DEBUG", 'False'))
 HOST_ADDRESS = os.getenv("HOST_ADDRESS", "localhost:50051")
 INIT_SLEEP = int(os.getenv("INIT_SLEEP", "5"))
+AGENCY_NAME = os.getenv("AGENCY_NAME", "agency")
+EXPECT_TIMEOUT = int(os.getenv("EXPECT_TIMEOUT", "3"))
 
 
 PUBLISH_QUEUE = queue.Queue()
@@ -52,9 +56,11 @@ EXPECT_QUEUE = queue.Queue()
 @dataclass
 class AgenticMessage:
     ''' AgenticMessage '''
-    content: str
     id: str
     id_replied: str
+    content: str
+    to: list[str]
+    fr: str
 
 
 @default_subscription
@@ -67,7 +73,7 @@ class MyAgent(RoutedAgent):
     @message_handler
     async def my_message_handler(self, message: AgenticMessage,
                                  ctx: MessageContext) -> None:
-        print(f"Put the queue received message: {message}")
+        print(f"Put to the queue received message: {message}")
         EXPECT_QUEUE.put(message)
 
 
@@ -99,30 +105,56 @@ async def ask():
     try:
         prompt = request.args.get("prompt")
         id = str(uuid.uuid4())
+
+        at_name_regex = r'@[^ \n]*[ \n]?'
+        matches = re.findall(at_name_regex, prompt)
+        matches = [s.replace('@', '').replace(',', '').replace('\n', '').replace(' ', '').strip() for s in matches]
+        n_matches = len(matches)
+        # content = re.sub(at_name_regex, '', prompt)
+        content = prompt
+        print('at name matches:', matches, ', n_matches:', n_matches)
+        print('content:', content)
+
         PUBLISH_QUEUE.put(
           AgenticMessage(
               id=id,
               id_replied='',
-              content=prompt,
+              to=matches,
+              fr=AGENCY_NAME,
+              content=content,
           ),
         )
 
-        res = '(None)'
+        res = ''
         message = None
+        n_replies = 0
+        replies_fr = []
         print('Worker is expecting messages from the queue')
-        while True:
-            message = EXPECT_QUEUE.get()
-            if id == message.id_replied:
-                print('Queue received message:', message)
-                res = message.content
-                EXPECT_QUEUE.task_done()
-                break
-            elif id == message.id:
-                print('Remove from the queue:', message)
-                EXPECT_QUEUE.task_done()
-            else:
-                print('Queue skipped message:', message)
-            await asyncio.sleep(0.001)
+        start_time = time.time()
+        while time.time() - start_time < EXPECT_TIMEOUT:
+            try:
+                message = EXPECT_QUEUE.get_nowait()
+                if id == message.id_replied:
+                    print('Queue received message:', message)
+                    res += message.content
+                    EXPECT_QUEUE.task_done()
+                    n_replies += 1
+                    replies_fr.append(message.fr)
+                    if n_matches > 0:
+                        intersect = set(matches) & set(replies_fr)
+                        print('intersect:', intersect, ', replies_fr:', replies_fr, ', matches:', matches)
+                        n_intersect = len(intersect)
+                        print('n_intersect:', n_intersect, ', n_matches:', n_matches)
+                        if n_intersect == n_matches:
+                            break
+                    res += '\n\n'
+                elif id == message.id:
+                    print('Remove from the queue:', message)
+                    EXPECT_QUEUE.task_done()
+                else:
+                    print('Queue skipped message:', message)
+            except queue.Empty:
+                await asyncio.sleep(0.01)
 
         print('res:', res)
         return res

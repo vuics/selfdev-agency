@@ -18,19 +18,15 @@ class MyMessage:
 @default_subscription
 class MyAgent(RoutedAgent):
     def __init__(self, name: str) -> None:
-        super().__init__("My agent")
+        super().__init__(name)
         self._name = name
-        self._counter = 0
 
     @message_handler
     async def my_message_handler(self, message: MyMessage,
                                  ctx: MessageContext) -> None:
         print(f"Received message: {message}")
         print(f"Received message content: {message.content}")
-        self._counter += 1
-        if self._counter > 5:
-            return
-        content = f"{self._name}: Hello x {self._counter}"
+        content = f"{self._name}: Echo {message.content}"
         print(content)
         await self.publish_message(MyMessage(content=content),
                                    DefaultTopicId())
@@ -45,7 +41,7 @@ async def main():
         print('receiver connected')
         worker1.start()
         print('receiver started')
-        await MyAgent.register(worker1, "receiver", lambda: MyAgent("worker1"))
+        await MyAgent.register(worker1, "adam", lambda: MyAgent("worker1"))
         print('receiver registered')
     except Exception as err:
         print('sender setup error:', err)

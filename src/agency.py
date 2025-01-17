@@ -5,6 +5,7 @@ Main module
 import os
 import asyncio
 import threading
+import queue
 from dataclasses import dataclass
 
 from dotenv import load_dotenv
@@ -23,8 +24,7 @@ DEBUG = os.getenv("DEBUG", False)
 HOST_ADDRESS = os.getenv("HOST_ADDRESS", "localhost:50051")
 
 
-SHARED_WORKER = None
-SHARED_LOCK = threading.Lock()
+PUBLISH_QUEUE = queue.Queue()
 
 
 @dataclass
@@ -37,22 +37,17 @@ class MyMessage:
 class MyAgent(RoutedAgent):
     ''' MyAgent '''
     def __init__(self, name: str) -> None:
-        super().__init__("My agent")
+        super().__init__(name)
         self._name = name
-        self._counter = 0
 
     @message_handler
     async def my_message_handler(self, message: MyMessage,
                                  ctx: MessageContext) -> None:
         print(f"Received message: {message}")
         print(f"Received message content: {message.content}")
-        self._counter += 1
-        if self._counter > 5:
-            return
-        content = f"{self._name}: Hello x {self._counter}"
-        print(content)
-        await self.publish_message(MyMessage(content=content),
-                                   DefaultTopicId())
+        # print(content)
+        # await self.publish_message(MyMessage(content=content),
+        #                            DefaultTopicId())
 
 
 try:
@@ -82,15 +77,10 @@ async def ask():
     ''' Ask '''
     try:
         prompt = request.args.get("prompt")
-        with SHARED_LOCK:
-            if SHARED_WORKER is not None:
-                print('publish_message:', prompt)
-                r = await SHARED_WORKER.publish_message(
-                  MyMessage(content=prompt),
-                  DefaultTopicId()
-                )
-                print('r:', r)
+        PUBLISH_QUEUE.put(prompt)
+
         # FIXME: change res to the actual response from the agent
+
         res = '(TODO)'
         print('res:', res)
         return res
@@ -104,21 +94,29 @@ async def ask():
 
 async def worker_executor():
     ''' worker_executor '''
-    global SHARED_WORKER
     print('sleep 5')
     await asyncio.sleep(5)
     try:
         print(f'init sender on {HOST_ADDRESS}')
         worker = GrpcWorkerAgentRuntime(host_address=HOST_ADDRESS)
-        print('sender connected')
         worker.start()
-        print('sender started')
-        await MyAgent.register(worker, "sender", lambda: MyAgent("worker"))
+        await MyAgent.register(worker, "agency", lambda: MyAgent("worker"))
         print('sender registered')
-        with SHARED_LOCK:
-            SHARED_WORKER = worker
     except Exception as err:
         print('sender setup error:', err)
+
+    print('Worker is listening for messages in the queue')
+    while True:
+        item = PUBLISH_QUEUE.get()
+        print('item:', item)
+        print('worker:', worker)
+        await worker.publish_message(
+          MyMessage(content=item),
+          DefaultTopicId()
+        )
+        print('published message:', item)
+        PUBLISH_QUEUE.task_done()
+        await asyncio.sleep(0.01)
 
     # await worker.stop()
     await worker.stop_when_signal()
@@ -138,11 +136,14 @@ def run_flask_app():
 
 def main():
     ''' main '''
-    flask_thread = threading.Thread(target=run_flask_app)
-    flask_thread.daemon = True
+    flask_thread = threading.Thread(target=run_flask_app, daemon=True)
+    # flask_thread.daemon = True
     flask_thread.start()
 
     asyncio.run(worker_executor())
+
+    print("Block until all tasks are done.")
+    PUBLISH_QUEUE.join()
     print("exit")
 
 

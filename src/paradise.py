@@ -15,7 +15,7 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    # logging.basicConfig(level=logging.WARNING)
-    logging.basicConfig(level=logging.DEBUG)
-    logging.getLogger("autogen_core").setLevel(logging.DEBUG)
+    logging.basicConfig(level=logging.WARNING)
+    # logging.getLogger("autogen_core").setLevel(logging.INFO)
+    logging.getLogger("autogen_core").setLevel(logging.WARNING)
     asyncio.run(main())

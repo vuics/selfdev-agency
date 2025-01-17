@@ -1,18 +1,28 @@
+''' Adam agent '''
+import os
 from dataclasses import dataclass
-from autogen_core import DefaultTopicId, MessageContext, RoutedAgent, default_subscription, message_handler
 import asyncio
+
+from autogen_core import DefaultTopicId, MessageContext, RoutedAgent, default_subscription, message_handler
 from autogen_ext.runtimes.grpc import GrpcWorkerAgentRuntime
 from dotenv import load_dotenv
-import os
-import json
+import uuid
+# import json
+
+# from message_types import AgenticMessage
 
 load_dotenv()
-host_address = os.getenv("HOST_ADDRESS", "localhost:50051")
+
+HOST_ADDRESS = os.getenv("HOST_ADDRESS", "localhost:50051")
+INIT_SLEEP = int(os.getenv("INIT_SLEEP", "5"))
 
 
 @dataclass
-class MyMessage:
+class AgenticMessage:
+    ''' AgenticMessage '''
     content: str
+    id: str
+    id_replied: str
 
 
 @default_subscription
@@ -22,31 +32,34 @@ class MyAgent(RoutedAgent):
         self._name = name
 
     @message_handler
-    async def my_message_handler(self, message: MyMessage,
+    async def my_message_handler(self, message: AgenticMessage,
                                  ctx: MessageContext) -> None:
         print(f"Received message: {message}")
-        print(f"Received message content: {message.content}")
-        content = f"{self._name}: Echo {message.content}"
-        print(content)
-        await self.publish_message(MyMessage(content=content),
-                                   DefaultTopicId())
+        await self.publish_message(
+            AgenticMessage(
+                id=str(uuid.uuid4()),
+                id_replied=message.id,
+                content=f'Adam echoes: {message.content}',
+            ),
+            DefaultTopicId()
+        )
 
 
 async def main():
-    print('sleep 5')
-    await asyncio.sleep(5)
-    try:
-        print('init receiver')
-        worker1 = GrpcWorkerAgentRuntime(host_address=host_address)
-        print('receiver connected')
-        worker1.start()
-        print('receiver started')
-        await MyAgent.register(worker1, "adam", lambda: MyAgent("worker1"))
-        print('receiver registered')
-    except Exception as err:
-        print('sender setup error:', err)
+    if INIT_SLEEP > 0:
+        print(f"Initially, sleeping for {INIT_SLEEP} seconds")
+        await asyncio.sleep(INIT_SLEEP)
 
-    await worker1.stop_when_signal()
+    try:
+        print('Connecting to gRPC Agent Runtime on host:', HOST_ADDRESS)
+        worker = GrpcWorkerAgentRuntime(host_address=HOST_ADDRESS)
+        worker.start()
+        await MyAgent.register(worker, "adam", lambda: MyAgent("worker"))
+        print('Worker registered')
+    except Exception as err:
+        print('Worker setup error:', err)
+
+    await worker.stop_when_signal()
     print('receiver stopped')
 
 

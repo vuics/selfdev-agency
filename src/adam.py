@@ -25,6 +25,8 @@ class MyAgent(RoutedAgent):
     @message_handler
     async def my_message_handler(self, message: MyMessage,
                                  ctx: MessageContext) -> None:
+        print(f"Received message: {message}")
+        print(f"Received message content: {message.content}")
         self._counter += 1
         if self._counter > 5:
             return

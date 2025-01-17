@@ -19,12 +19,11 @@ setuptools.setup(
   install_requires=[
     'python-dotenv==1.0.0',
     'Flask==3.0.0',
-    'Flask[async]==3.0.0',
     'Flask-Cors==4.0.0',
     'requests==2.31.0',
     # 'six==1.16.0',
-    # 'watchdog==3.0.0',
-    # 'watchdog[watchmedo]>=0.10.2',
+    'watchdog==3.0.0',
+    'watchdog[watchmedo]>=0.10.2',
     'safety==2.3.5',
     # 'openai==1.58.1',
     'waitress==2.1.2',
@@ -32,8 +31,5 @@ setuptools.setup(
     'autogen-agentchat==0.4.2',
     'autogen-ext[openai]==0.4.2',
     'autogen-ext[grpc]==0.4.2',
-    # 'py-mon==2.0.5',
-    'nest-asyncio==1.6.0',
-    'fastapi==0.115.6',
   ],
 )

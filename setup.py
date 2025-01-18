@@ -18,6 +18,10 @@ setuptools.setup(
   python_requires='>=3.10',
   install_requires=[
     'python-dotenv==1.0.0',
+    'fastapi==0.115.6',
+    'pydantic==2.10.5',
+    'uvicorn==0.34.0',
+    'httpx==0.27.2',
     'Flask==3.0.0',
     'Flask[async]==3.0.0',
     'Flask-Cors==4.0.0',
@@ -59,6 +63,5 @@ setuptools.setup(
     # 'watchdog[watchmedo]>=0.10.2',
     # 'openai==1.58.1',
     # 'nest-asyncio==1.6.0',
-    # 'fastapi==0.115.6',
   ],
 )

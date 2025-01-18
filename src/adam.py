@@ -1,4 +1,6 @@
-''' Adam agent '''
+'''
+Adam agent was the first in a history of agents. It was created by the Creator.
+'''
 import os
 from dataclasses import dataclass
 import asyncio
@@ -70,7 +72,7 @@ async def main():
         print('Worker setup error:', err)
 
     await worker.stop_when_signal()
-    print('receiver stopped')
+    print('Worker stopped')
 
 
 if __name__ == '__main__':

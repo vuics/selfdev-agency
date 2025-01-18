@@ -1,4 +1,8 @@
-''' Adam agent '''
+'''
+Eva agent was second agent fully copied from adam.
+She is completely like an Adam agent, but different and beautiful.
+She is a girl of Adam.
+'''
 import os
 from dataclasses import dataclass
 import asyncio
@@ -49,7 +53,7 @@ class MyAgent(RoutedAgent):
                 id_replied=message.id,
                 to=message.fr[0],
                 fr=AGENT_NAME,
-                content=f'{AGENT_NAME} echoes: {message.content}',
+                content=f'👩🏻 {AGENT_NAME} 🗣️: {message.content}',
             ),
             DefaultTopicId()
         )
@@ -70,7 +74,7 @@ async def main():
         print('Worker setup error:', err)
 
     await worker.stop_when_signal()
-    print('receiver stopped')
+    print('Worker stopped')
 
 
 if __name__ == '__main__':

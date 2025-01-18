@@ -9,11 +9,36 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from pathlib import Path
+from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+from langchain_ollama import ChatOllama
 
 load_dotenv()
 
 AGENT_NAME = os.getenv("AGENT_NAME", "smith")
 PORT = int(os.getenv("PORT", "6603"))
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+
+# providers:
+#  'openai', 'anthropic', 'ollama'
+# models:
+#  'gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20240620', 
+#  'medragondot/Sky-T1-32B-Preview', 
+#  'llama3.3', 'gemma', 'mistral', 'tinyllama'
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
+
+if LLM_PROVIDER == "openai":
+    chat_llm = ChatOpenAI(model=MODEL_NAME, api_key=OPENAI_API_KEY)
+elif LLM_PROVIDER == "anthropic":
+    chat_llm = ChatAnthropic(model=MODEL_NAME, api_key=ANTHROPIC_API_KEY)
+elif LLM_PROVIDER == "ollama":
+    chat_llm = ChatOllama(model=MODEL_NAME)
+else:
+    raise ValueError(f"Unknown LLM provider: {LLM_PROVIDER}")
+
 
 app = FastAPI()
 
@@ -27,10 +52,12 @@ async def chat(request: ChatRequest):
     try:
         prompt = request.prompt
         print('prompt:', prompt)
+        ai_msg = chat_llm.invoke(prompt)
+        print("ai_msg:", ai_msg.content)
         return JSONResponse(
             content={
                 "result": "ok",
-                "content": f"{AGENT_NAME} echoes: {prompt}"
+                "content": ai_msg.content,
             },
             status_code=200
         )

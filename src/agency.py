@@ -22,6 +22,7 @@ PORT = int(os.getenv("PORT", "6600"))
 DEBUG = str_to_bool(os.getenv("DEBUG", 'False'))
 ADAM_URL = os.getenv("ADAM_URL", "http://localhost:6601/v1")
 EVE_URL = os.getenv("EVE_URL", "http://localhost:6602/v1")
+SMITH_URL = os.getenv("SMITH_URL", "http://localhost:6603/v1")
 
 app = FastAPI()
 http_client = httpx.AsyncClient()
@@ -49,7 +50,8 @@ async def chat(request: ChatRequest):
 
         responses = await asyncio.gather(
             http_client.post(f"{ADAM_URL}/chat", json={"prompt": prompt}),
-            http_client.post(f"{EVE_URL}/chat", json={"prompt": prompt})
+            http_client.post(f"{EVE_URL}/chat", json={"prompt": prompt}),
+            http_client.post(f"{SMITH_URL}/chat", json={"prompt": prompt}),
         )
         content = ''
         for response in responses:

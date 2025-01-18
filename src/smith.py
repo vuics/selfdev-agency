@@ -69,18 +69,15 @@ class MyAgent(RoutedAgent):
             print(f'Agent @{AGENT_NAME} not in message.to: {message.to}')
             return
         print(f"Received message: {message}")
-        # ai_msg = chat.invoke(message.content)
-        # print(f"ai_msg: {ai_msg.content}")
-        # print('agentic_message:', agentic_message)
+        ai_msg = chat.invoke(message.content)
+        print(f"ai_msg: {ai_msg.content}")
         await self.publish_message(
             AgenticMessage(
                 id=str(uuid.uuid4()),
                 id_replied=message.id,
                 to=[message.fr],
                 fr=AGENT_NAME,
-                # content=f'{AGENT_NAME} echoes: {message.content}',
-                # content=ai_msg.content,
-                content=message.content + ' - from ' + AGENT_NAME,
+                content=ai_msg.content,
             ),
             DefaultTopicId()
         )

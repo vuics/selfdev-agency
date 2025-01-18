@@ -46,7 +46,8 @@ DEBUG = str_to_bool(os.getenv("DEBUG", 'False'))
 HOST_ADDRESS = os.getenv("HOST_ADDRESS", "localhost:50051")
 INIT_SLEEP = int(os.getenv("INIT_SLEEP", "5"))
 AGENCY_NAME = os.getenv("AGENCY_NAME", "agency")
-EXPECT_TIMEOUT = int(os.getenv("EXPECT_TIMEOUT", "3"))
+# EXPECT_TIMEOUT = int(os.getenv("EXPECT_TIMEOUT", "3"))
+EXPECT_TIMEOUT = int(os.getenv("EXPECT_TIMEOUT", "15"))
 
 
 PUBLISH_QUEUE = queue.Queue()

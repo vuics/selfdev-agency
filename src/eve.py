@@ -1,5 +1,7 @@
 '''
-Adam agent was the first in a history of agents. It was created by the Creator.
+Eva agent was second agent fully copied from adam.
+She is completely like an Adam agent, but different and beautiful.
+She is a girl of Adam.
 '''
 import os
 from dataclasses import dataclass
@@ -17,7 +19,7 @@ load_dotenv()
 
 HOST_ADDRESS = os.getenv("HOST_ADDRESS", "localhost:50051")
 INIT_SLEEP = int(os.getenv("INIT_SLEEP", "5"))
-AGENT_NAME = os.getenv("AGENT_NAME", "adam")
+AGENT_NAME = os.getenv("AGENT_NAME", "eve")
 
 
 @dataclass
@@ -39,7 +41,7 @@ class MyAgent(RoutedAgent):
     @message_handler
     async def my_message_handler(self, message: AgenticMessage,
                                  ctx: MessageContext) -> None:
-        if (message.id_replied != ''):
+        if message.id_replied != '':
             return
         if message.to and AGENT_NAME not in message.to:
             print(f'Agent @{AGENT_NAME} not in message.to: {message.to}')
@@ -51,7 +53,7 @@ class MyAgent(RoutedAgent):
                 id_replied=message.id,
                 to=[message.fr],
                 fr=AGENT_NAME,
-                content=f'{AGENT_NAME} echoes: {message.content}',
+                content=f'👩🏻 {AGENT_NAME} 🗣️: {message.content}',
             ),
             DefaultTopicId()
         )

@@ -1,7 +1,5 @@
 '''
-Eva agent was second agent fully copied from adam.
-She is completely like an Adam agent, but different and beautiful.
-She is a girl of Adam.
+Adam agent was the first in a history of agents. It was created by the Creator.
 '''
 import os
 from dataclasses import dataclass
@@ -11,6 +9,9 @@ from autogen_core import DefaultTopicId, MessageContext, RoutedAgent, default_su
 from autogen_ext.runtimes.grpc import GrpcWorkerAgentRuntime
 from dotenv import load_dotenv
 import uuid
+from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+from langchain_ollama import ChatOllama
 # import json
 
 # from message_types import AgenticMessage
@@ -19,7 +20,28 @@ load_dotenv()
 
 HOST_ADDRESS = os.getenv("HOST_ADDRESS", "localhost:50051")
 INIT_SLEEP = int(os.getenv("INIT_SLEEP", "5"))
-AGENT_NAME = os.getenv("AGENT_NAME", "eve")
+AGENT_NAME = os.getenv("AGENT_NAME", "smith")
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+
+# providers:
+#  'openai', 'anthropic', 'ollama'
+# models:
+#  'gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20240620', 
+#  'medragondot/Sky-T1-32B-Preview', 
+#  'llama3.3', 'gemma', 'mistral', 'tinyllama'
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
+
+if LLM_PROVIDER == "openai":
+    chat = ChatOpenAI(model=MODEL_NAME, api_key=OPENAI_API_KEY)
+elif LLM_PROVIDER == "anthropic":
+    chat = ChatAnthropic(model=MODEL_NAME, api_key=ANTHROPIC_API_KEY)
+elif LLM_PROVIDER == "ollama":
+    chat = ChatOllama(model=MODEL_NAME)
+else:
+    raise ValueError(f"Unknown LLM provider: {LLM_PROVIDER}")
 
 
 @dataclass
@@ -41,19 +63,24 @@ class MyAgent(RoutedAgent):
     @message_handler
     async def my_message_handler(self, message: AgenticMessage,
                                  ctx: MessageContext) -> None:
-        if message.id_replied != '':
+        if (message.id_replied != ''):
             return
         if message.to and AGENT_NAME not in message.to:
             print(f'Agent @{AGENT_NAME} not in message.to: {message.to}')
             return
         print(f"Received message: {message}")
+        # ai_msg = chat.invoke(message.content)
+        # print(f"ai_msg: {ai_msg.content}")
+        # print('agentic_message:', agentic_message)
         await self.publish_message(
             AgenticMessage(
                 id=str(uuid.uuid4()),
                 id_replied=message.id,
-                to=message.fr[0],
+                to=[message.fr],
                 fr=AGENT_NAME,
-                content=f'👩🏻 {AGENT_NAME} 🗣️: {message.content}',
+                # content=f'{AGENT_NAME} echoes: {message.content}',
+                # content=ai_msg.content,
+                content=message.content + ' - from ' + AGENT_NAME,
             ),
             DefaultTopicId()
         )

@@ -4,6 +4,8 @@ Selfdev Agency
 '''
 import os
 import asyncio
+import json
+import re
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -20,12 +22,17 @@ load_dotenv()
 AGENCY_NAME = os.getenv("AGENCY_NAME", "agency")
 PORT = int(os.getenv("PORT", "6600"))
 DEBUG = str_to_bool(os.getenv("DEBUG", 'False'))
-ADAM_URL = os.getenv("ADAM_URL", "http://localhost:6601/v1")
-EVE_URL = os.getenv("EVE_URL", "http://localhost:6602/v1")
-SMITH_URL = os.getenv("SMITH_URL", "http://localhost:6603/v1")
+AGENTS = json.loads(os.getenv("AGENTS", '''{
+"adam": {"url": "http://localhost:6601/v1"},
+"eve": {"url": "http://localhost:6602/v1"},
+"smith": {"url": "http://localhost:6603/v1"},
+"rag": {"url": "http://localhost:6604/v1"}
+}'''))
+DEFAULT_AGENTS = json.loads(os.getenv("DEFAULT_AGENTS", '["smith"]'))
+HTTP_TIMEOUT = int(os.getenv("HTTP_TIMEOUT", "60"))
 
 app = FastAPI()
-http_client = httpx.AsyncClient()
+http_client = httpx.AsyncClient(timeout=HTTP_TIMEOUT)
 
 
 class ChatRequest(BaseModel):
@@ -38,25 +45,31 @@ async def chat(request: ChatRequest):
         prompt = request.prompt
         print('prompt:', prompt)
 
-        # TODO: send messages to agents
-        #
-        # at_name_regex = r'@[^ \n]*[ \n]?'
-        # matches = re.findall(at_name_regex, prompt)
-        # matches = [s.replace('@', '').replace(',', '').replace('\n', '').replace(' ', '').strip() for s in matches]
-        # n_matches = len(matches)
-        # content = prompt
-        # print('at name matches:', matches, ', n_matches:', n_matches)
-        # print('content:', content)
+        mentioned_agents = re.findall(r"@(\w+)", prompt)
+        print('mentioned_agents:', mentioned_agents)
+        if 'everyone' in mentioned_agents or 'all' in mentioned_agents:
+            call_agents = AGENTS.keys()
+        else:
+            call_agents = set(mentioned_agents) & set(AGENTS.keys())
+            print('call_agents 1:', call_agents)
+            if len(call_agents) == 0:
+                call_agents = DEFAULT_AGENTS
+        print('call_agents 2:', call_agents)
 
+        print('call urls:', [f"{AGENTS[agent_name]['url']}/chat" for agent_name in call_agents])
         responses = await asyncio.gather(
-            http_client.post(f"{ADAM_URL}/chat", json={"prompt": prompt}),
-            http_client.post(f"{EVE_URL}/chat", json={"prompt": prompt}),
-            http_client.post(f"{SMITH_URL}/chat", json={"prompt": prompt}),
+            *[http_client.post(
+                f"{AGENTS[agent_name]['url']}/chat", json={"prompt": prompt}
+            ) for agent_name in call_agents]
         )
+        print('responses:', responses)
+
         content = ''
         for response in responses:
-            content += response.json()["content"] + "\n\n"
-        # content = content.rstrip()
+            obj = response.json()
+            print('obj:', obj)
+            content += f'@{obj["agent"]}: {obj["content"]}\n\n'
+        content = content.rstrip()
         return JSONResponse(
             content={
                 "result": "ok",

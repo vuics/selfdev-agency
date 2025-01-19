@@ -24,6 +24,9 @@ RUN apt-get update --yes && \
 #RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN npm i -g nodemon
+RUN pip install --upgrade pip && \
+    pip install nltk==3.9.1 && \
+    python -m nltk.downloader punkt punkt_tab averaged_perceptron_tagger_eng
 
 WORKDIR /opt/app/
 COPY setup.py ./
@@ -32,7 +35,6 @@ RUN pip install .
 COPY src/*.py ./src/
 COPY README.md ./
 
-# RUN python -m nltk.downloader punkt
 
 # RUN mkdir -p /opt/ssl/ && openssl req -x509 -newkey rsa:4096 -keyout /opt/ssl/tls.key -out /opt/ssl/tls.crt -days 9999 -nodes -subj "/CN=localhost"
 

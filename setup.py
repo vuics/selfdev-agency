@@ -22,11 +22,6 @@ setuptools.setup(
     'pydantic==2.10.5',
     'uvicorn==0.34.0',
     'httpx==0.27.2',
-    'Flask==3.0.0',
-    'Flask[async]==3.0.0',
-    'Flask-Cors==4.0.0',
-    'requests==2.31.0',
-    # 'safety==3.2.14', get back if possible for `safety check`
     'waitress==2.1.2',
     'autogen-core==0.4.2',
     'autogen-agentchat==0.4.2',
@@ -55,9 +50,11 @@ setuptools.setup(
     'google-auth-httplib2==0.2.0',
     'google-auth-oauthlib==1.2.1',
 
-    # 'nltk==3.9.1',
-    # 'nltk-punkt==0.6',
-
+    # 'Flask==3.0.0',
+    # 'Flask[async]==3.0.0',
+    # 'Flask-Cors==4.0.0',
+    # 'requests==2.31.0',
+    # 'safety==3.2.14', get back if possible for `safety check`
     # 'six==1.16.0',
     # 'watchdog==3.0.0',
     # 'watchdog[watchmedo]>=0.10.2',

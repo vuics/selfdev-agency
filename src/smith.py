@@ -57,6 +57,7 @@ async def chat(request: ChatRequest):
         return JSONResponse(
             content={
                 "result": "ok",
+                "agent": AGENT_NAME,
                 "content": ai_msg.content,
             },
             status_code=200

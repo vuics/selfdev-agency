@@ -30,7 +30,8 @@ async def chat(request: ChatRequest):
         return JSONResponse(
             content={
                 "result": "ok",
-                "content": f"{AGENT_NAME} echoes: {prompt}"
+                "agent": AGENT_NAME,
+                "content": prompt,
             },
             status_code=200
         )

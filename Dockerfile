@@ -34,6 +34,7 @@ RUN pip install .
 
 COPY src/*.py ./src/
 COPY README.md ./
+COPY input/* ./input/
 
 
 # RUN mkdir -p /opt/ssl/ && openssl req -x509 -newkey rsa:4096 -keyout /opt/ssl/tls.key -out /opt/ssl/tls.crt -days 9999 -nodes -subj "/CN=localhost"

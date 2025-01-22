@@ -45,8 +45,8 @@ EMBEDDINGS_NAME = os.getenv("EMBEDDING_MODEL", "text-embedding-3-large")
 
 VECTOR_STORE = os.getenv("VECTOR_STORE", "in-memory")
 
-DIRECTORY_LOADER_PATH = os.getenv("DIRECOTRY_LOADER_PATH", "./input")
-DIRECOTRY_LOADER_GLOB = os.getenv("DIRECOTRY_LOADER_GLOB", "**/*.*")
+DIRECTORY_LOADER_PATH = os.getenv("DIRECTORY_LOADER_PATH", "./input")
+DIRECOTRY_LOADER_GLOB = os.getenv("DIRECTORY_LOADER_GLOB", "**/*.*")
 
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 GOOGLE_TOKEN = os.getenv("GOOGLE_TOKEN", "./google_token.json")

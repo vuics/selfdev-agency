@@ -128,8 +128,6 @@ async def chat(request: ChatRequest):
         )
 
 
-
-
 if __name__ == "__main__":
     import uvicorn
     module = Path(__file__).stem

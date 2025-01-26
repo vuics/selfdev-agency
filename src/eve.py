@@ -10,6 +10,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from pathlib import Path
 
+# AI! The eve.py agent is very similar to adam.py agent. They are different in the chat function. Add the code for self registering, heartbeats to this eve agent from adam. Do not repeat yourself. If you need move the common code to a new file called agent_class.py
+
 load_dotenv()
 
 AGENT_NAME = os.getenv("AGENT_NAME", "eve")

@@ -27,6 +27,18 @@ DEBUG = str_to_bool(os.getenv("DEBUG", 'False'))
 AGENTS: Dict[str, dict] = {}
 DEFAULT_AGENTS = json.loads(os.getenv("DEFAULT_AGENTS", '["smith"]'))
 HTTP_TIMEOUT = int(os.getenv("HTTP_TIMEOUT", "60"))
+HEARTBEAT_TIMEOUT = int(os.getenv("HEARTBEAT_TIMEOUT", "30"))  # seconds
+
+# Background task for checking agent heartbeats
+async def check_agent_heartbeats():
+    while True:
+        current_time = asyncio.get_event_loop().time()
+        for agent_name in list(AGENTS.keys()):
+            last_heartbeat = AGENTS[agent_name].get("last_heartbeat", 0)
+            if current_time - last_heartbeat > HEARTBEAT_TIMEOUT:
+                print(f"Agent {agent_name} timed out, unregistering")
+                del AGENTS[agent_name]
+        await asyncio.sleep(HEARTBEAT_TIMEOUT // 2)
 
 app = FastAPI()
 http_client = httpx.AsyncClient(timeout=HTTP_TIMEOUT)
@@ -90,6 +102,11 @@ class AgentRegistration(BaseModel):
     version: Optional[str] = "1.0"
     description: Optional[str] = None
 
+@app.on_event("startup")
+async def startup_event():
+    """Start the heartbeat checker"""
+    asyncio.create_task(check_agent_heartbeats())
+
 @app.post("/v1/register")
 async def register_agent(registration: AgentRegistration):
     """Register a new agent with the agency"""
@@ -147,8 +164,25 @@ async def unregister_agent(agent_name: str):
             status_code=500
         )
 
-# AI! Add a route for heartbeat so that the adam.py agent will be sending this heartbeat. If heartbeat did not come during the timeout period, then the agency unregisters the agent. Modify adam.py too to send the heartbeats.
-#
+@app.post("/v1/heartbeat/{agent_name}")
+async def agent_heartbeat(agent_name: str):
+    """Record a heartbeat from an agent"""
+    if agent_name not in AGENTS:
+        return JSONResponse(
+            content={
+                "result": "error",
+                "error": f"Agent {agent_name} not registered"
+            },
+            status_code=404
+        )
+    
+    AGENTS[agent_name]["last_heartbeat"] = asyncio.get_event_loop().time()
+    return JSONResponse(
+        content={
+            "result": "ok"
+        },
+        status_code=200
+    )
 
 @app.on_event("shutdown")
 async def shutdown_event():

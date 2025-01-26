@@ -15,12 +15,25 @@ load_dotenv()
 AGENT_NAME = os.getenv("AGENT_NAME", "adam")
 PORT = int(os.getenv("PORT", "6601"))
 AGENCY_URL = os.getenv("AGENCY_URL", "http://localhost:6600/v1")
+HEARTBEAT_INTERVAL = int(os.getenv("HEARTBEAT_INTERVAL", "10"))  # seconds
 
 app = FastAPI()
 http_client = httpx.AsyncClient()
 
+async def send_heartbeats():
+    """Periodically send heartbeats to the agency"""
+    while True:
+        try:
+            response = await http_client.post(f"{AGENCY_URL}/heartbeat/{AGENT_NAME}")
+            if response.status_code != 200:
+                print(f"Heartbeat failed: {response.text}")
+        except Exception as e:
+            print(f"Failed to send heartbeat: {e}")
+        await asyncio.sleep(HEARTBEAT_INTERVAL)
+
 @app.on_event("startup")
 async def startup_event():
+    """Register with the agency and start heartbeats"""
     """Register with the agency on startup"""
     try:
         response = await http_client.post(
@@ -35,6 +48,9 @@ async def startup_event():
         print(f"Registration response: {response.status_code}")
         if response.status_code != 200:
             print(f"Registration failed: {response.text}")
+        if response.status_code == 200:
+            # Start sending heartbeats after successful registration
+            asyncio.create_task(send_heartbeats())
     except Exception as e:
         print(f"Failed to register with agency: {e}")
 

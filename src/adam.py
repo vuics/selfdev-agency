@@ -3,6 +3,7 @@
 Selfdev Agency
 '''
 import os
+import asyncio
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -20,6 +21,7 @@ HEARTBEAT_INTERVAL = int(os.getenv("HEARTBEAT_INTERVAL", "10"))  # seconds
 app = FastAPI()
 http_client = httpx.AsyncClient()
 
+
 async def send_heartbeats():
     """Periodically send heartbeats to the agency"""
     while True:
@@ -31,10 +33,10 @@ async def send_heartbeats():
             print(f"Failed to send heartbeat: {e}")
         await asyncio.sleep(HEARTBEAT_INTERVAL)
 
+
 @app.on_event("startup")
 async def startup_event():
-    """Register with the agency and start heartbeats"""
-    """Register with the agency on startup"""
+    """Register with the agency on startup and start heartbeats"""
     try:
         response = await http_client.post(
             f"{AGENCY_URL}/register",
@@ -53,6 +55,13 @@ async def startup_event():
             asyncio.create_task(send_heartbeats())
     except Exception as e:
         print(f"Failed to register with agency: {e}")
+# AI! I am getting the following log below. Fix the failing registering error. Add registering retry with exponential backoff.
+"""
+self-developing-selfdev-adam-prod-1  | INFO:     Started server process [12]
+self-developing-selfdev-adam-prod-1  | INFO:     Waiting for application startup.
+self-developing-selfdev-adam-prod-1  | Failed to register with agency: All connection attempts failed
+self-developing-selfdev-adam-prod-1  | INFO:     Application startup complete.
+"""
 
 
 class ChatRequest(BaseModel):

@@ -3,7 +3,7 @@
 Selfdev Agency
 '''
 import os
-
+import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -14,8 +14,29 @@ load_dotenv()
 
 AGENT_NAME = os.getenv("AGENT_NAME", "adam")
 PORT = int(os.getenv("PORT", "6601"))
+AGENCY_URL = os.getenv("AGENCY_URL", "http://localhost:6600/v1")
 
 app = FastAPI()
+http_client = httpx.AsyncClient()
+
+@app.on_event("startup")
+async def startup_event():
+    """Register with the agency on startup"""
+    try:
+        response = await http_client.post(
+            f"{AGENCY_URL}/register",
+            json={
+                "name": AGENT_NAME,
+                "url": f"http://localhost:{PORT}/v1",
+                "version": "1.0",
+                "description": "Adam agent for testing"
+            }
+        )
+        print(f"Registration response: {response.status_code}")
+        if response.status_code != 200:
+            print(f"Registration failed: {response.text}")
+    except Exception as e:
+        print(f"Failed to register with agency: {e}")
 
 
 class ChatRequest(BaseModel):
@@ -48,7 +69,13 @@ async def chat(request: ChatRequest):
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    pass
+    """Unregister from the agency on shutdown"""
+    try:
+        response = await http_client.delete(f"{AGENCY_URL}/unregister/{AGENT_NAME}")
+        print(f"Unregistration response: {response.status_code}")
+        await http_client.aclose()
+    except Exception as e:
+        print(f"Failed to unregister from agency: {e}")
 
 
 if __name__ == "__main__":

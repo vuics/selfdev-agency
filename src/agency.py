@@ -11,6 +11,7 @@ from typing import Dict, Optional, Any
 
 import redis.asyncio as redis
 from redis.asyncio import Redis
+from redis.exceptions import ConnectionError, TimeoutError as RedisTimeoutError
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -67,7 +68,7 @@ class AgentStore:
 app = FastAPI()
 http_client = httpx.AsyncClient(timeout=HTTP_TIMEOUT)
 
-redis: Redis = None
+redis_client: Redis = None
 agent_store: AgentStore = None
 
 
@@ -147,7 +148,7 @@ class AgentRegistration(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     """Initialize Redis connection and start the heartbeat checker"""
-    global redis, agent_store
+    global redis_client, agent_store
 
     max_retries = 5
     retry_delay = 2  # seconds
@@ -155,7 +156,7 @@ async def startup_event():
     for attempt in range(max_retries):
         try:
             print(f'Attempting Redis connection ({attempt + 1}/{max_retries}) to: {REDIS_URL}')
-            redis_client = await redis.from_url(
+            redis_client = await redis.Redis.from_url(
                 REDIS_URL,
                 decode_responses=False,
                 socket_timeout=5,
@@ -167,14 +168,13 @@ async def startup_event():
             await redis_client.ping()
             print('Successfully connected to Redis!')
 
-            redis = redis_client
-            agent_store = AgentStore(redis)
+            agent_store = AgentStore(redis_client)
             asyncio.create_task(check_agent_heartbeats())
             return
 
-        except redis.ConnectionError as e:
+        except ConnectionError as e:
             print(f'Redis connection error (attempt {attempt + 1}): {str(e)}')
-        except redis.TimeoutError as e:
+        except RedisTimeoutError as e:
             print(f'Redis timeout error (attempt {attempt + 1}): {str(e)}')
         except Exception as e:
             print(f'Unexpected error connecting to Redis (attempt {attempt + 1}): {str(e)}')
@@ -303,8 +303,8 @@ async def agent_heartbeat(agent_name: str):
 @app.on_event("shutdown")
 async def shutdown_event():
     await http_client.aclose()
-    if redis:
-        await redis.close()
+    if redis_client:
+        await redis_client.close()
 
 
 if __name__ == "__main__":

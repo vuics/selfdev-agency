@@ -17,9 +17,11 @@ AGENT_NAME = os.getenv("AGENT_NAME", "adam")
 PORT = int(os.getenv("PORT", "6601"))
 AGENCY_URL = os.getenv("AGENCY_URL", "http://localhost:6600/v1")
 HEARTBEAT_INTERVAL = int(os.getenv("HEARTBEAT_INTERVAL", "10"))  # seconds
+MAX_REGISTRATION_RETRIES = int(os.getenv("MAX_REGISTRATION_RETRIES", "5"))
+INITIAL_RETRY_DELAY = int(os.getenv("INITIAL_RETRY_DELAY", "2"))
 
 app = FastAPI()
-http_client = httpx.AsyncClient()
+http_client = httpx.AsyncClient(timeout=30.0)  # 30 second timeout
 
 
 async def send_heartbeats():
@@ -37,31 +39,43 @@ async def send_heartbeats():
 @app.on_event("startup")
 async def startup_event():
     """Register with the agency on startup and start heartbeats"""
-    try:
-        response = await http_client.post(
-            f"{AGENCY_URL}/register",
-            json={
-                "name": AGENT_NAME,
-                "url": f"http://localhost:{PORT}/v1",
-                "version": "1.0",
-                "description": "Adam agent for testing"
-            }
-        )
-        print(f"Registration response: {response.status_code}")
-        if response.status_code != 200:
-            print(f"Registration failed: {response.text}")
-        if response.status_code == 200:
-            # Start sending heartbeats after successful registration
-            asyncio.create_task(send_heartbeats())
-    except Exception as e:
-        print(f"Failed to register with agency: {e}")
-# AI! I am getting the following log below. Fix the failing registering error. Add registering retry with exponential backoff.
-"""
-self-developing-selfdev-adam-prod-1  | INFO:     Started server process [12]
-self-developing-selfdev-adam-prod-1  | INFO:     Waiting for application startup.
-self-developing-selfdev-adam-prod-1  | Failed to register with agency: All connection attempts failed
-self-developing-selfdev-adam-prod-1  | INFO:     Application startup complete.
-"""
+    retry_delay = INITIAL_RETRY_DELAY
+    
+    for attempt in range(MAX_REGISTRATION_RETRIES):
+        try:
+            print(f'Attempting to register with agency ({attempt + 1}/{MAX_REGISTRATION_RETRIES})')
+            response = await http_client.post(
+                f"{AGENCY_URL}/register",
+                json={
+                    "name": AGENT_NAME,
+                    "url": f"http://localhost:{PORT}/v1",
+                    "version": "1.0",
+                    "description": "Adam agent for testing"
+                },
+                timeout=10.0
+            )
+            
+            if response.status_code == 200:
+                print(f"Successfully registered with agency after {attempt + 1} attempts")
+                # Start sending heartbeats after successful registration
+                asyncio.create_task(send_heartbeats())
+                return
+            else:
+                print(f"Registration attempt {attempt + 1} failed with status {response.status_code}: {response.text}")
+                
+        except httpx.ConnectError as e:
+            print(f"Connection error on attempt {attempt + 1}: {str(e)}")
+        except httpx.TimeoutError as e:
+            print(f"Timeout error on attempt {attempt + 1}: {str(e)}")
+        except Exception as e:
+            print(f"Unexpected error on attempt {attempt + 1}: {str(e)}")
+            
+        if attempt < MAX_REGISTRATION_RETRIES - 1:
+            print(f"Retrying in {retry_delay} seconds...")
+            await asyncio.sleep(retry_delay)
+            retry_delay *= 2  # Exponential backoff
+        
+    print(f"Failed to register with agency after {MAX_REGISTRATION_RETRIES} attempts")
 
 
 class ChatRequest(BaseModel):

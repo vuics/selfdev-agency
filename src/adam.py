@@ -49,3 +49,9 @@ if __name__ == "__main__":
         initial_retry_delay=INITIAL_RETRY_DELAY
     )
     agent.run()
+
+# AI! I got the error:
+self-developing-selfdev-adam-prod-1  | INFO:     Application shutdown complete.
+self-developing-selfdev-adam-prod-1  | INFO:     Finished server process [48]
+self-developing-selfdev-adam-prod-1  | ERROR:    Error loading ASGI app. Attribute "app" not found in module "adam".
+kself-developing-selfdev-adam-prod-1  | INFO:     Stopping reloader process [1]

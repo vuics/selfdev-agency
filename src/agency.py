@@ -6,8 +6,11 @@ import os
 import asyncio
 import json
 import re
-from typing import Dict, Optional
+import pickle
+from typing import Dict, Optional, Any
 
+import aioredis
+from aioredis import Redis
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -24,20 +27,53 @@ AGENCY_NAME = os.getenv("AGENCY_NAME", "agency")
 PORT = int(os.getenv("PORT", "6600"))
 DEBUG = str_to_bool(os.getenv("DEBUG", 'False'))
 # Dynamic agent registry
-AGENTS: Dict[str, dict] = {}
 DEFAULT_AGENTS = json.loads(os.getenv("DEFAULT_AGENTS", '["smith"]'))
+redis: Redis = None
+agent_store: AgentStore = None
 HTTP_TIMEOUT = int(os.getenv("HTTP_TIMEOUT", "60"))
 HEARTBEAT_TIMEOUT = int(os.getenv("HEARTBEAT_TIMEOUT", "30"))  # seconds
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+REDIS_PREFIX = os.getenv("REDIS_PREFIX", "agency:")
+
+class AgentStore:
+    def __init__(self, redis: Redis):
+        self.redis = redis
+        self.prefix = REDIS_PREFIX
+
+    async def set_agent(self, name: str, data: dict):
+        key = f"{self.prefix}agent:{name}"
+        await self.redis.set(key, pickle.dumps(data))
+        # Set expiration to 2 * HEARTBEAT_TIMEOUT
+        await self.redis.expire(key, 2 * HEARTBEAT_TIMEOUT)
+
+    async def get_agent(self, name: str) -> Optional[dict]:
+        key = f"{self.prefix}agent:{name}"
+        data = await self.redis.get(key)
+        return pickle.loads(data) if data else None
+
+    async def delete_agent(self, name: str):
+        key = f"{self.prefix}agent:{name}"
+        await self.redis.delete(key)
+
+    async def get_all_agents(self) -> Dict[str, Any]:
+        agents = {}
+        async for key in self.redis.scan_iter(f"{self.prefix}agent:*"):
+            name = key.decode().split(':')[-1]
+            data = await self.get_agent(name)
+            if data:
+                agents[name] = data
+        return agents
 
 # Background task for checking agent heartbeats
 async def check_agent_heartbeats():
     while True:
         current_time = asyncio.get_event_loop().time()
-        for agent_name in list(AGENTS.keys()):
-            last_heartbeat = AGENTS[agent_name].get("last_heartbeat", 0)
+        agents = await agent_store.get_all_agents()
+        for agent_name, agent_data in agents.items():
+            last_heartbeat = agent_data.get("last_heartbeat", 0)
             if current_time - last_heartbeat > HEARTBEAT_TIMEOUT:
                 print(f"Agent {agent_name} timed out, unregistering")
-                del AGENTS[agent_name]
+                await agent_store.delete_agent(agent_name)
         await asyncio.sleep(HEARTBEAT_TIMEOUT // 2)
 
 app = FastAPI()
@@ -56,16 +92,17 @@ async def chat(request: ChatRequest):
 
         mentioned_agents = re.findall(r"@(\w+)", prompt)
         print('mentioned_agents:', mentioned_agents)
+        agents = await agent_store.get_all_agents()
         if 'everyone' in mentioned_agents or 'all' in mentioned_agents:
-            call_agents = AGENTS.keys()
+            call_agents = agents.keys()
         else:
-            call_agents = set(mentioned_agents) & set(AGENTS.keys())
+            call_agents = set(mentioned_agents) & set(agents.keys())
             print('call_agents 1:', call_agents)
             if len(call_agents) == 0:
                 call_agents = DEFAULT_AGENTS
         print('call_agents 2:', call_agents)
 
-        print('call urls:', [f"{AGENTS[agent_name]['url']}/chat" for agent_name in call_agents])
+        print('call urls:', [f"{agents[agent_name]['url']}/chat" for agent_name in call_agents])
         responses = await asyncio.gather(
             *[http_client.post(
                 f"{AGENTS[agent_name]['url']}/chat", json={"prompt": prompt}
@@ -104,18 +141,23 @@ class AgentRegistration(BaseModel):
 
 @app.on_event("startup")
 async def startup_event():
-    """Start the heartbeat checker"""
+    """Initialize Redis connection and start the heartbeat checker"""
+    global redis, agent_store
+    redis = await aioredis.from_url(REDIS_URL, decode_responses=False)
+    agent_store = AgentStore(redis)
     asyncio.create_task(check_agent_heartbeats())
 
 @app.post("/v1/register")
 async def register_agent(registration: AgentRegistration):
     """Register a new agent with the agency"""
     try:
-        AGENTS[registration.name] = {
+        agent_data = {
             "url": registration.url,
             "version": registration.version,
-            "description": registration.description
+            "description": registration.description,
+            "last_heartbeat": asyncio.get_event_loop().time()
         }
+        await agent_store.set_agent(registration.name, agent_data)
         print(f"Registered agent: {registration.name} at {registration.url}")
         return JSONResponse(
             content={
@@ -138,8 +180,8 @@ async def register_agent(registration: AgentRegistration):
 async def unregister_agent(agent_name: str):
     """Unregister an agent from the agency"""
     try:
-        if agent_name in AGENTS:
-            del AGENTS[agent_name]
+        if await agent_store.get_agent(agent_name):
+            await agent_store.delete_agent(agent_name)
             return JSONResponse(
                 content={
                     "result": "ok",
@@ -167,7 +209,8 @@ async def unregister_agent(agent_name: str):
 @app.post("/v1/heartbeat/{agent_name}")
 async def agent_heartbeat(agent_name: str):
     """Record a heartbeat from an agent"""
-    if agent_name not in AGENTS:
+    agent_data = await agent_store.get_agent(agent_name)
+    if not agent_data:
         return JSONResponse(
             content={
                 "result": "error",
@@ -176,7 +219,8 @@ async def agent_heartbeat(agent_name: str):
             status_code=404
         )
 
-    AGENTS[agent_name]["last_heartbeat"] = asyncio.get_event_loop().time()
+    agent_data["last_heartbeat"] = asyncio.get_event_loop().time()
+    await agent_store.set_agent(agent_name, agent_data)
     return JSONResponse(
         content={
             "result": "ok"
@@ -187,6 +231,8 @@ async def agent_heartbeat(agent_name: str):
 @app.on_event("shutdown")
 async def shutdown_event():
     await http_client.aclose()
+    if redis:
+        await redis.close()
 
 
 if __name__ == "__main__":

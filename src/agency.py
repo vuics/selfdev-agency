@@ -175,7 +175,7 @@ async def agent_heartbeat(agent_name: str):
             },
             status_code=404
         )
-    
+
     AGENTS[agent_name]["last_heartbeat"] = asyncio.get_event_loop().time()
     return JSONResponse(
         content={

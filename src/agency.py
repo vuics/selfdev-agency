@@ -89,7 +89,6 @@ class ChatRequest(BaseModel):
 
 @app.post("/v1/chat")
 async def chat(request: ChatRequest):
-    # AI! If one of the HTTP POST requests will fail, make the other requests succeed. Keep the parallel execution of all the HTTP requests.  Send the response with all succeful responses.  For failed responses, add a content error string that response has failed from such an agent, mention name of the agent in the error.
     try:
         prompt = request.prompt
         print('prompt:', prompt)

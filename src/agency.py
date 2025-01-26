@@ -106,24 +106,40 @@ async def chat(request: ChatRequest):
                 call_agents = DEFAULT_AGENTS
         print('call_agents 2:', call_agents)
 
-        print('call urls:', [f"{agents[agent_name]['url']}/chat" for agent_name in call_agents])
-        responses = await asyncio.gather(
-            *[http_client.post(
-                f"{agents[agent_name]['url']}/chat", json={"prompt": prompt}
-            ) for agent_name in call_agents]
-        )
-        print('responses:', responses)
+        # Create list of (agent_name, task) tuples
+        agent_tasks = [(agent_name, http_client.post(
+            f"{agents[agent_name]['url']}/chat",
+            json={"prompt": prompt}
+        )) for agent_name in call_agents]
 
-        content = ''
-        for response in responses:
-            obj = response.json()
-            print('obj:', obj)
-            content += f'@{obj["agent"]}: {obj["content"]}\n\n'
-        content = content.rstrip()
+        print('call urls:', [f"{agents[name]['url']}/chat" for name, _ in agent_tasks])
+        
+        # Execute all requests in parallel, allowing exceptions
+        responses = await asyncio.gather(
+            *(task for _, task in agent_tasks),
+            return_exceptions=True
+        )
+
+        # Process responses and handle failures
+        content = []
+        for (agent_name, _), response in zip(agent_tasks, responses):
+            if isinstance(response, Exception):
+                error_msg = str(response)
+                print(f'Failed to get response from agent {agent_name}: {error_msg}')
+                content.append(f'@{agent_name}: ERROR - Failed to get response: {error_msg}')
+            else:
+                try:
+                    obj = response.json()
+                    content.append(f'@{obj["agent"]}: {obj["content"]}')
+                except Exception as err:
+                    print(f'Failed to parse response from agent {agent_name}: {err}')
+                    content.append(f'@{agent_name}: ERROR - Invalid response format: {str(err)}')
+
+        final_content = '\n\n'.join(content)
         return JSONResponse(
             content={
                 "result": "ok",
-                "content": content
+                "content": final_content
             },
             status_code=200
         )

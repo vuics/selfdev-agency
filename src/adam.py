@@ -17,7 +17,7 @@ load_dotenv()
 AGENT_NAME = os.getenv("AGENT_NAME", "adam")
 PORT = int(os.getenv("PORT", "6601"))
 AGENCY_URL = os.getenv("AGENCY_URL", "http://localhost:6600/v1")
-HEARTBEAT_INTERVAL = int(os.getenv("HEARTBEAT_INTERVAL", "10"))  # seconds
+HEARTBEAT_INTERVAL = int(os.getenv("HEARTBEAT_INTERVAL", "60"))  # seconds
 MAX_REGISTRATION_RETRIES = int(os.getenv("MAX_REGISTRATION_RETRIES", "5"))
 INITIAL_RETRY_DELAY = int(os.getenv("INITIAL_RETRY_DELAY", "2"))
 
@@ -41,6 +41,26 @@ async def send_heartbeats():
         await asyncio.sleep(HEARTBEAT_INTERVAL)
 
 
+# AI! Fix the following DeprecationWarnings:
+"""
+self-developing-selfdev-adam-prod-1  | /opt/app/src/adam.py:39: DeprecationWarning:
+self-developing-selfdev-adam-prod-1  |         on_event is deprecated, use lifespan event handlers instead.
+self-developing-selfdev-adam-prod-1  |
+self-developing-selfdev-adam-prod-1  |
+self-developing-selfdev-adam-prod-1  |         Read more about it in the
+self-developing-selfdev-adam-prod-1  |         [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+self-developing-selfdev-adam-prod-1  |
+self-developing-selfdev-adam-prod-1  |   @app.on_event("startup")
+self-developing-selfdev-adam-prod-1  | /opt/app/src/adam.py:111: DeprecationWarning:
+self-developing-selfdev-adam-prod-1  |         on_event is deprecated, use lifespan event handlers instead.
+self-developing-selfdev-adam-prod-1  |
+self-developing-selfdev-adam-prod-1  |
+self-developing-selfdev-adam-prod-1  |         Read more about it in the
+self-developing-selfdev-adam-prod-1  |         [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+self-developing-selfdev-adam-prod-1  |
+self-developing-selfdev-adam-prod-1  |   @app.on_event("shutdown")
+
+"""
 @app.on_event("startup")
 async def startup_event():
     """Register with the agency on startup and start heartbeats"""

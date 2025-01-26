@@ -40,7 +40,8 @@ async def send_heartbeats():
 async def startup_event():
     """Register with the agency on startup and start heartbeats"""
     retry_delay = INITIAL_RETRY_DELAY
-    
+    response = None
+
     for attempt in range(MAX_REGISTRATION_RETRIES):
         try:
             print(f'Attempting to register with agency ({attempt + 1}/{MAX_REGISTRATION_RETRIES})')
@@ -49,12 +50,28 @@ async def startup_event():
                 json={
                     "name": AGENT_NAME,
                     "url": f"http://localhost:{PORT}/v1",
+# AI! It fails in the docker-compose because the url above is 'http://selfdev-adam-prod:6601/v1/chat' instead of localhost. Fix the error by defining the host name automatically. 
+# Use to define the hostname:
+# import platform
+# platform.node()
+# Or:
+# import socket
+# socket.gethostname()
+#
+# It show the error below:
+"""
+self-developing-selfdev-agency-prod-1  | Chat error: All connection attempts failed
+self-developing-selfdev-agency-prod-1  | INFO:     172.18.0.6:50426 - "POST /v1/chat HTTP/1.1" 500 Internal Server Error
+"""
+
+
                     "version": "1.0",
                     "description": "Adam agent for testing"
                 },
                 timeout=10.0
             )
-            
+            print('response.status_code:', response.status_code)
+
             if response.status_code == 200:
                 print(f"Successfully registered with agency after {attempt + 1} attempts")
                 # Start sending heartbeats after successful registration
@@ -62,19 +79,20 @@ async def startup_event():
                 return
             else:
                 print(f"Registration attempt {attempt + 1} failed with status {response.status_code}: {response.text}")
-                
+
         except httpx.ConnectError as e:
+            print('response.status_code:', response.status_code)
             print(f"Connection error on attempt {attempt + 1}: {str(e)}")
         except httpx.TimeoutError as e:
             print(f"Timeout error on attempt {attempt + 1}: {str(e)}")
         except Exception as e:
             print(f"Unexpected error on attempt {attempt + 1}: {str(e)}")
-            
+
         if attempt < MAX_REGISTRATION_RETRIES - 1:
             print(f"Retrying in {retry_delay} seconds...")
             await asyncio.sleep(retry_delay)
             retry_delay *= 2  # Exponential backoff
-        
+
     print(f"Failed to register with agency after {MAX_REGISTRATION_RETRIES} attempts")
 
 

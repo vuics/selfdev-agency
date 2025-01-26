@@ -26,44 +26,14 @@ load_dotenv()
 AGENCY_NAME = os.getenv("AGENCY_NAME", "agency")
 PORT = int(os.getenv("PORT", "6600"))
 DEBUG = str_to_bool(os.getenv("DEBUG", 'False'))
-class AgentStore:
-    def __init__(self, redis: Redis):
-        self.redis = redis
-        self.prefix = REDIS_PREFIX
-
-    async def set_agent(self, name: str, data: dict):
-        key = f"{self.prefix}agent:{name}"
-        await self.redis.set(key, pickle.dumps(data))
-        # Set expiration to 2 * HEARTBEAT_TIMEOUT
-        await self.redis.expire(key, 2 * HEARTBEAT_TIMEOUT)
-
-    async def get_agent(self, name: str) -> Optional[dict]:
-        key = f"{self.prefix}agent:{name}"
-        data = await self.redis.get(key)
-        return pickle.loads(data) if data else None
-
-    async def delete_agent(self, name: str):
-        key = f"{self.prefix}agent:{name}"
-        await self.redis.delete(key)
-
-    async def get_all_agents(self) -> Dict[str, Any]:
-        agents = {}
-        async for key in self.redis.scan_iter(f"{self.prefix}agent:*"):
-            name = key.decode().split(':')[-1]
-            data = await self.get_agent(name)
-            if data:
-                agents[name] = data
-        return agents
-
 # Dynamic agent registry
 DEFAULT_AGENTS = json.loads(os.getenv("DEFAULT_AGENTS", '["smith"]'))
-redis: Redis = None
-agent_store: AgentStore = None
 HTTP_TIMEOUT = int(os.getenv("HTTP_TIMEOUT", "60"))
 HEARTBEAT_TIMEOUT = int(os.getenv("HEARTBEAT_TIMEOUT", "30"))  # seconds
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 REDIS_PREFIX = os.getenv("REDIS_PREFIX", "agency:")
 
+
 class AgentStore:
     def __init__(self, redis: Redis):
         self.redis = redis
@@ -92,6 +62,14 @@ class AgentStore:
             if data:
                 agents[name] = data
         return agents
+
+
+app = FastAPI()
+http_client = httpx.AsyncClient(timeout=HTTP_TIMEOUT)
+
+redis: Redis = None
+agent_store: AgentStore = None
+
 
 # Background task for checking agent heartbeats
 async def check_agent_heartbeats():
@@ -104,10 +82,6 @@ async def check_agent_heartbeats():
                 print(f"Agent {agent_name} timed out, unregistering")
                 await agent_store.delete_agent(agent_name)
         await asyncio.sleep(HEARTBEAT_TIMEOUT // 2)
-
-app = FastAPI()
-http_client = httpx.AsyncClient(timeout=HTTP_TIMEOUT)
-
 
 class ChatRequest(BaseModel):
     prompt: str
@@ -162,19 +136,42 @@ async def chat(request: ChatRequest):
             status_code=500
         )
 
+
 class AgentRegistration(BaseModel):
     name: str
     url: str
     version: Optional[str] = "1.0"
     description: Optional[str] = None
 
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize Redis connection and start the heartbeat checker"""
+
+    # AI! Improve the connection to Redis. Handle connection to Redis exceptions. 
+    # Print important debug information. I want to get this connection to Redis work without errors.
+    """
+AI! Currently I get this errors
+self-developing-selfdev-agency-prod-1  | Traceback (most recent call last):
+self-developing-selfdev-agency-prod-1  |   File "/opt/app/src/agency.py", line 12, in <module>
+self-developing-selfdev-agency-prod-1  |     import aioredis
+self-developing-selfdev-agency-prod-1  |   File "/usr/local/lib/python3.11/site-packages/aioredis/__init__.py", line 1, in <module>
+self-developing-selfdev-agency-prod-1  |     from aioredis.client import Redis, StrictRedis
+self-developing-selfdev-agency-prod-1  |   File "/usr/local/lib/python3.11/site-packages/aioredis/client.py", line 32, in <module>
+self-developing-selfdev-agency-prod-1  |     from aioredis.connection import (
+self-developing-selfdev-agency-prod-1  |   File "/usr/local/lib/python3.11/site-packages/aioredis/connection.py", line 33, in <module>
+self-developing-selfdev-agency-prod-1  |     from .exceptions import (
+self-developing-selfdev-agency-prod-1  |   File "/usr/local/lib/python3.11/site-packages/aioredis/exceptions.py", line 14, in <module>
+self-developing-selfdev-agency-prod-1  |     class TimeoutError(asyncio.TimeoutError, builtins.TimeoutError, RedisError):
+self-developing-selfdev-agency-prod-1  | TypeError: duplicate base class TimeoutError
+    """
     global redis, agent_store
+    print('Connecting to Redis at:', REDIS_URL)
     redis = await aioredis.from_url(REDIS_URL, decode_responses=False)
+    print('redis:', redis)
     agent_store = AgentStore(redis)
     asyncio.create_task(check_agent_heartbeats())
+
 
 @app.post("/v1/register")
 async def register_agent(registration: AgentRegistration):
@@ -204,6 +201,7 @@ async def register_agent(registration: AgentRegistration):
             },
             status_code=500
         )
+
 
 @app.delete("/v1/unregister/{agent_name}")
 async def unregister_agent(agent_name: str):
@@ -256,6 +254,7 @@ async def agent_heartbeat(agent_name: str):
         },
         status_code=200
     )
+
 
 @app.on_event("shutdown")
 async def shutdown_event():

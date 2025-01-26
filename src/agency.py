@@ -26,6 +26,35 @@ load_dotenv()
 AGENCY_NAME = os.getenv("AGENCY_NAME", "agency")
 PORT = int(os.getenv("PORT", "6600"))
 DEBUG = str_to_bool(os.getenv("DEBUG", 'False'))
+class AgentStore:
+    def __init__(self, redis: Redis):
+        self.redis = redis
+        self.prefix = REDIS_PREFIX
+
+    async def set_agent(self, name: str, data: dict):
+        key = f"{self.prefix}agent:{name}"
+        await self.redis.set(key, pickle.dumps(data))
+        # Set expiration to 2 * HEARTBEAT_TIMEOUT
+        await self.redis.expire(key, 2 * HEARTBEAT_TIMEOUT)
+
+    async def get_agent(self, name: str) -> Optional[dict]:
+        key = f"{self.prefix}agent:{name}"
+        data = await self.redis.get(key)
+        return pickle.loads(data) if data else None
+
+    async def delete_agent(self, name: str):
+        key = f"{self.prefix}agent:{name}"
+        await self.redis.delete(key)
+
+    async def get_all_agents(self) -> Dict[str, Any]:
+        agents = {}
+        async for key in self.redis.scan_iter(f"{self.prefix}agent:*"):
+            name = key.decode().split(':')[-1]
+            data = await self.get_agent(name)
+            if data:
+                agents[name] = data
+        return agents
+
 # Dynamic agent registry
 DEFAULT_AGENTS = json.loads(os.getenv("DEFAULT_AGENTS", '["smith"]'))
 redis: Redis = None
@@ -105,7 +134,7 @@ async def chat(request: ChatRequest):
         print('call urls:', [f"{agents[agent_name]['url']}/chat" for agent_name in call_agents])
         responses = await asyncio.gather(
             *[http_client.post(
-                f"{AGENTS[agent_name]['url']}/chat", json={"prompt": prompt}
+                f"{agents[agent_name]['url']}/chat", json={"prompt": prompt}
             ) for agent_name in call_agents]
         )
         print('responses:', responses)

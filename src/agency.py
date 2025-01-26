@@ -147,6 +147,9 @@ async def unregister_agent(agent_name: str):
             status_code=500
         )
 
+# AI! Add a route for heartbeat so that the adam.py agent will be sending this heartbeat. If heartbeat did not come during the timeout period, then the agency unregisters the agent. Modify adam.py too to send the heartbeats.
+#
+
 @app.on_event("shutdown")
 async def shutdown_event():
     await http_client.aclose()

@@ -4,6 +4,7 @@ Selfdev Agency
 '''
 import os
 import asyncio
+import socket
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -19,6 +20,10 @@ AGENCY_URL = os.getenv("AGENCY_URL", "http://localhost:6600/v1")
 HEARTBEAT_INTERVAL = int(os.getenv("HEARTBEAT_INTERVAL", "10"))  # seconds
 MAX_REGISTRATION_RETRIES = int(os.getenv("MAX_REGISTRATION_RETRIES", "5"))
 INITIAL_RETRY_DELAY = int(os.getenv("INITIAL_RETRY_DELAY", "2"))
+
+# Get hostname automatically - will be container name in Docker
+HOST = socket.gethostname()
+SERVICE_URL = f"http://{HOST}:{PORT}/v1"
 
 app = FastAPI()
 http_client = httpx.AsyncClient(timeout=30.0)  # 30 second timeout
@@ -45,26 +50,12 @@ async def startup_event():
     for attempt in range(MAX_REGISTRATION_RETRIES):
         try:
             print(f'Attempting to register with agency ({attempt + 1}/{MAX_REGISTRATION_RETRIES})')
+            print(f'Registering with URL: {SERVICE_URL}')
             response = await http_client.post(
                 f"{AGENCY_URL}/register",
                 json={
                     "name": AGENT_NAME,
-                    "url": f"http://localhost:{PORT}/v1",
-# AI! It fails in the docker-compose because the url above is 'http://selfdev-adam-prod:6601/v1/chat' instead of localhost. Fix the error by defining the host name automatically. 
-# Use to define the hostname:
-# import platform
-# platform.node()
-# Or:
-# import socket
-# socket.gethostname()
-#
-# It show the error below:
-"""
-self-developing-selfdev-agency-prod-1  | Chat error: All connection attempts failed
-self-developing-selfdev-agency-prod-1  | INFO:     172.18.0.6:50426 - "POST /v1/chat HTTP/1.1" 500 Internal Server Error
-"""
-
-
+                    "url": SERVICE_URL,
                     "version": "1.0",
                     "description": "Adam agent for testing"
                 },

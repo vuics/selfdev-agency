@@ -148,10 +148,10 @@ class AgentRegistration(BaseModel):
 async def startup_event():
     """Initialize Redis connection and start the heartbeat checker"""
     global redis, agent_store
-    
+
     max_retries = 5
     retry_delay = 2  # seconds
-    
+
     for attempt in range(max_retries):
         try:
             print(f'Attempting Redis connection ({attempt + 1}/{max_retries}) to: {REDIS_URL}')
@@ -162,31 +162,60 @@ async def startup_event():
                 socket_connect_timeout=5,
                 retry_on_timeout=True
             )
-            
+
             # Test the connection
             await redis_client.ping()
             print('Successfully connected to Redis!')
-            
+
             redis = redis_client
             agent_store = AgentStore(redis)
             asyncio.create_task(check_agent_heartbeats())
             return
-            
+
         except redis.ConnectionError as e:
             print(f'Redis connection error (attempt {attempt + 1}): {str(e)}')
         except redis.TimeoutError as e:
             print(f'Redis timeout error (attempt {attempt + 1}): {str(e)}')
         except Exception as e:
             print(f'Unexpected error connecting to Redis (attempt {attempt + 1}): {str(e)}')
-        
+
         if attempt < max_retries - 1:
             print(f'Retrying in {retry_delay} seconds...')
             await asyncio.sleep(retry_delay)
             retry_delay *= 2  # Exponential backoff
-    
+
     print('Failed to connect to Redis after all attempts!')
     raise RuntimeError('Could not establish Redis connection')
 
+# AI! See the error below and fix the error:
+"""
+self-developing-selfdev-agency-prod-1  | INFO:     Waiting for application startup.
+self-developing-selfdev-agency-prod-1  | Attempting Redis connection (1/5) to: redis://redis-prod:6379
+self-developing-selfdev-agency-prod-1  | ERROR:    Traceback (most recent call last):
+self-developing-selfdev-agency-prod-1  |   File "/opt/app/src/agency.py", line 158, in startup_event
+self-developing-selfdev-agency-prod-1  |     redis_client = await redis.from_url(
+self-developing-selfdev-agency-prod-1  |                          ^^^^^^^^^^^^^^
+self-developing-selfdev-agency-prod-1  | AttributeError: 'NoneType' object has no attribute 'from_url'
+self-developing-selfdev-agency-prod-1  |
+self-developing-selfdev-agency-prod-1  |
+self-developing-selfdev-agency-prod-1  | During handling of the above exception, another exception occurred:
+self-developing-selfdev-agency-prod-1  |
+self-developing-selfdev-agency-prod-1  |
+self-developing-selfdev-agency-prod-1  | Traceback (most recent call last):
+self-developing-selfdev-agency-prod-1  |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 693, in lifespan
+self-developing-selfdev-agency-prod-1  |     async with self.lifespan_context(app) as maybe_state:
+self-developing-selfdev-agency-prod-1  |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 569, in __aenter__
+self-developing-selfdev-agency-prod-1  |     await self._router.startup()
+self-developing-selfdev-agency-prod-1  |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 670, in startup
+self-developing-selfdev-agency-prod-1  |     await handler()
+self-developing-selfdev-agency-prod-1  |   File "/opt/app/src/agency.py", line 175, in startup_event
+self-developing-selfdev-agency-prod-1  |     except redis.ConnectionError as e:
+self-developing-selfdev-agency-prod-1  |            ^^^^^^^^^^^^^^^^^^^^^
+self-developing-selfdev-agency-prod-1  | AttributeError: 'NoneType' object has no attribute 'ConnectionError'
+self-developing-selfdev-agency-prod-1  |
+self-developing-selfdev-agency-prod-1  |
+self-developing-selfdev-agency-prod-1  | ERROR:    Application startup failed. Exiting.
+"""
 
 @app.post("/v1/register")
 async def register_agent(registration: AgentRegistration):

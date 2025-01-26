@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 class ChatRequest(BaseModel):
     prompt: str
@@ -119,4 +120,5 @@ class BaseAgent(ABC):
         """Run the agent"""
         import uvicorn
         print('Start agent:', self.agent_name)
-        uvicorn.run(self.app, host="0.0.0.0", port=self.port, reload=True)
+        module = Path(__file__).parent / Path(self.agent_name + ".py")
+        uvicorn.run(f"{module.stem}:app", host="0.0.0.0", port=self.port, reload=True)

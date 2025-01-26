@@ -5,7 +5,7 @@ Adam Agent
 import os
 from dotenv import load_dotenv
 from fastapi.responses import JSONResponse
-from agent_class import BaseAgent, ChatRequest
+from base_agent import BaseAgent, ChatRequest
 
 load_dotenv()
 

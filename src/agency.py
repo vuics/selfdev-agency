@@ -113,7 +113,7 @@ async def chat(request: ChatRequest):
         )) for agent_name in call_agents]
 
         print('call urls:', [f"{agents[name]['url']}/chat" for name, _ in agent_tasks])
-        
+
         # Execute all requests in parallel, allowing exceptions
         responses = await asyncio.gather(
             *(task for _, task in agent_tasks),

@@ -9,8 +9,8 @@ import re
 import pickle
 from typing import Dict, Optional, Any
 
-import aioredis
-from aioredis import Redis
+import redis.asyncio as redis
+from redis.asyncio import Redis
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -147,30 +147,45 @@ class AgentRegistration(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     """Initialize Redis connection and start the heartbeat checker"""
-
-    # AI! Improve the connection to Redis. Handle connection to Redis exceptions. 
-    # Print important debug information. I want to get this connection to Redis work without errors.
-    """
-AI! Currently I get this errors
-self-developing-selfdev-agency-prod-1  | Traceback (most recent call last):
-self-developing-selfdev-agency-prod-1  |   File "/opt/app/src/agency.py", line 12, in <module>
-self-developing-selfdev-agency-prod-1  |     import aioredis
-self-developing-selfdev-agency-prod-1  |   File "/usr/local/lib/python3.11/site-packages/aioredis/__init__.py", line 1, in <module>
-self-developing-selfdev-agency-prod-1  |     from aioredis.client import Redis, StrictRedis
-self-developing-selfdev-agency-prod-1  |   File "/usr/local/lib/python3.11/site-packages/aioredis/client.py", line 32, in <module>
-self-developing-selfdev-agency-prod-1  |     from aioredis.connection import (
-self-developing-selfdev-agency-prod-1  |   File "/usr/local/lib/python3.11/site-packages/aioredis/connection.py", line 33, in <module>
-self-developing-selfdev-agency-prod-1  |     from .exceptions import (
-self-developing-selfdev-agency-prod-1  |   File "/usr/local/lib/python3.11/site-packages/aioredis/exceptions.py", line 14, in <module>
-self-developing-selfdev-agency-prod-1  |     class TimeoutError(asyncio.TimeoutError, builtins.TimeoutError, RedisError):
-self-developing-selfdev-agency-prod-1  | TypeError: duplicate base class TimeoutError
-    """
     global redis, agent_store
-    print('Connecting to Redis at:', REDIS_URL)
-    redis = await aioredis.from_url(REDIS_URL, decode_responses=False)
-    print('redis:', redis)
-    agent_store = AgentStore(redis)
-    asyncio.create_task(check_agent_heartbeats())
+    
+    max_retries = 5
+    retry_delay = 2  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            print(f'Attempting Redis connection ({attempt + 1}/{max_retries}) to: {REDIS_URL}')
+            redis_client = await redis.from_url(
+                REDIS_URL,
+                decode_responses=False,
+                socket_timeout=5,
+                socket_connect_timeout=5,
+                retry_on_timeout=True
+            )
+            
+            # Test the connection
+            await redis_client.ping()
+            print('Successfully connected to Redis!')
+            
+            redis = redis_client
+            agent_store = AgentStore(redis)
+            asyncio.create_task(check_agent_heartbeats())
+            return
+            
+        except redis.ConnectionError as e:
+            print(f'Redis connection error (attempt {attempt + 1}): {str(e)}')
+        except redis.TimeoutError as e:
+            print(f'Redis timeout error (attempt {attempt + 1}): {str(e)}')
+        except Exception as e:
+            print(f'Unexpected error connecting to Redis (attempt {attempt + 1}): {str(e)}')
+        
+        if attempt < max_retries - 1:
+            print(f'Retrying in {retry_delay} seconds...')
+            await asyncio.sleep(retry_delay)
+            retry_delay *= 2  # Exponential backoff
+    
+    print('Failed to connect to Redis after all attempts!')
+    raise RuntimeError('Could not establish Redis connection')
 
 
 @app.post("/v1/register")

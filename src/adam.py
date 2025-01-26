@@ -39,19 +39,18 @@ class AdamAgent(BaseAgent):
                 status_code=500
             )
 
-if __name__ == "__main__":
-    agent = AdamAgent(
-        agent_name=AGENT_NAME,
-        port=PORT,
-        agency_url=AGENCY_URL,
-        heartbeat_interval=HEARTBEAT_INTERVAL,
-        max_registration_retries=MAX_REGISTRATION_RETRIES,
-        initial_retry_delay=INITIAL_RETRY_DELAY
-    )
-    agent.run()
+# Create a single instance of the agent
+agent = AdamAgent(
+    agent_name=AGENT_NAME,
+    port=PORT,
+    agency_url=AGENCY_URL,
+    heartbeat_interval=HEARTBEAT_INTERVAL,
+    max_registration_retries=MAX_REGISTRATION_RETRIES,
+    initial_retry_delay=INITIAL_RETRY_DELAY
+)
 
-# AI! I got the error:
-self-developing-selfdev-adam-prod-1  | INFO:     Application shutdown complete.
-self-developing-selfdev-adam-prod-1  | INFO:     Finished server process [48]
-self-developing-selfdev-adam-prod-1  | ERROR:    Error loading ASGI app. Attribute "app" not found in module "adam".
-kself-developing-selfdev-adam-prod-1  | INFO:     Stopping reloader process [1]
+# Export the FastAPI app instance
+app = agent.get_app()
+
+if __name__ == "__main__":
+    agent.run()

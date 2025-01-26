@@ -35,9 +35,15 @@ class BaseAgent(ABC):
         
         self.http_client = httpx.AsyncClient(timeout=30.0)
         self.app = FastAPI(lifespan=self.lifespan)
-        
-        # Register routes
+        self.setup_routes()
+    
+    def setup_routes(self):
+        """Setup the FastAPI routes"""
         self.app.post("/v1/chat")(self.chat)
+    
+    def get_app(self):
+        """Return the FastAPI app instance"""
+        return self.app
 
     @asynccontextmanager
     async def lifespan(self, app: FastAPI):

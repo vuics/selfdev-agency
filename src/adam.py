@@ -7,10 +7,11 @@ import asyncio
 import socket
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from pathlib import Path
+from contextlib import asynccontextmanager
 
 load_dotenv()
 
@@ -25,45 +26,10 @@ INITIAL_RETRY_DELAY = int(os.getenv("INITIAL_RETRY_DELAY", "2"))
 HOST = socket.gethostname()
 SERVICE_URL = f"http://{HOST}:{PORT}/v1"
 
-app = FastAPI()
-http_client = httpx.AsyncClient(timeout=30.0)  # 30 second timeout
-
-
-async def send_heartbeats():
-    """Periodically send heartbeats to the agency"""
-    while True:
-        try:
-            response = await http_client.post(f"{AGENCY_URL}/heartbeat/{AGENT_NAME}")
-            if response.status_code != 200:
-                print(f"Heartbeat failed: {response.text}")
-        except Exception as e:
-            print(f"Failed to send heartbeat: {e}")
-        await asyncio.sleep(HEARTBEAT_INTERVAL)
-
-
-# AI! Fix the following DeprecationWarnings:
-"""
-self-developing-selfdev-adam-prod-1  | /opt/app/src/adam.py:39: DeprecationWarning:
-self-developing-selfdev-adam-prod-1  |         on_event is deprecated, use lifespan event handlers instead.
-self-developing-selfdev-adam-prod-1  |
-self-developing-selfdev-adam-prod-1  |
-self-developing-selfdev-adam-prod-1  |         Read more about it in the
-self-developing-selfdev-adam-prod-1  |         [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
-self-developing-selfdev-adam-prod-1  |
-self-developing-selfdev-adam-prod-1  |   @app.on_event("startup")
-self-developing-selfdev-adam-prod-1  | /opt/app/src/adam.py:111: DeprecationWarning:
-self-developing-selfdev-adam-prod-1  |         on_event is deprecated, use lifespan event handlers instead.
-self-developing-selfdev-adam-prod-1  |
-self-developing-selfdev-adam-prod-1  |
-self-developing-selfdev-adam-prod-1  |         Read more about it in the
-self-developing-selfdev-adam-prod-1  |         [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
-self-developing-selfdev-adam-prod-1  |
-self-developing-selfdev-adam-prod-1  |   @app.on_event("shutdown")
-
-"""
-@app.on_event("startup")
-async def startup_event():
-    """Register with the agency on startup and start heartbeats"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup/shutdown events"""
+    # Startup
     retry_delay = INITIAL_RETRY_DELAY
     response = None
 
@@ -87,12 +53,11 @@ async def startup_event():
                 print(f"Successfully registered with agency after {attempt + 1} attempts")
                 # Start sending heartbeats after successful registration
                 asyncio.create_task(send_heartbeats())
-                return
+                break
             else:
                 print(f"Registration attempt {attempt + 1} failed with status {response.status_code}: {response.text}")
 
         except httpx.ConnectError as e:
-            print('response.status_code:', response.status_code)
             print(f"Connection error on attempt {attempt + 1}: {str(e)}")
         except httpx.TimeoutError as e:
             print(f"Timeout error on attempt {attempt + 1}: {str(e)}")
@@ -103,8 +68,36 @@ async def startup_event():
             print(f"Retrying in {retry_delay} seconds...")
             await asyncio.sleep(retry_delay)
             retry_delay *= 2  # Exponential backoff
+        else:
+            print(f"Failed to register with agency after {MAX_REGISTRATION_RETRIES} attempts")
 
-    print(f"Failed to register with agency after {MAX_REGISTRATION_RETRIES} attempts")
+    yield  # Server is running
+
+    # Shutdown
+    try:
+        response = await http_client.delete(f"{AGENCY_URL}/unregister/{AGENT_NAME}")
+        print(f"Unregistration response: {response.status_code}")
+        await http_client.aclose()
+    except Exception as e:
+        print(f"Failed to unregister from agency: {e}")
+
+# Initialize FastAPI with lifespan handler
+app = FastAPI(lifespan=lifespan)
+http_client = httpx.AsyncClient(timeout=30.0)  # 30 second timeout
+
+
+async def send_heartbeats():
+    """Periodically send heartbeats to the agency"""
+    while True:
+        try:
+            response = await http_client.post(f"{AGENCY_URL}/heartbeat/{AGENT_NAME}")
+            if response.status_code != 200:
+                print(f"Heartbeat failed: {response.text}")
+        except Exception as e:
+            print(f"Failed to send heartbeat: {e}")
+        await asyncio.sleep(HEARTBEAT_INTERVAL)
+
+
 
 
 class ChatRequest(BaseModel):
@@ -135,15 +128,6 @@ async def chat(request: ChatRequest):
         )
 
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Unregister from the agency on shutdown"""
-    try:
-        response = await http_client.delete(f"{AGENCY_URL}/unregister/{AGENT_NAME}")
-        print(f"Unregistration response: {response.status_code}")
-        await http_client.aclose()
-    except Exception as e:
-        print(f"Failed to unregister from agency: {e}")
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ ENV PATH="/root/.local/bin:${PATH}"
 
 RUN apt-get update --yes && \
     apt-get upgrade --yes && \
-    apt-get install --yes --no-install-recommends python3-dev gcc rustc cargo npm wget && \
+    apt-get install --yes --no-install-recommends python3-dev gcc rustc cargo npm wget libmagic1 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Trying to fix the issue with the missing browser

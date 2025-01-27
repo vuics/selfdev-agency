@@ -5,6 +5,7 @@ Adam Agent
 import os
 from dotenv import load_dotenv
 from fastapi.responses import JSONResponse
+
 from base_agent import BaseAgent, ChatRequest
 
 load_dotenv()
@@ -15,6 +16,7 @@ AGENCY_URL = os.getenv("AGENCY_URL", "http://localhost:6600/v1")
 HEARTBEAT_INTERVAL = int(os.getenv("HEARTBEAT_INTERVAL", "60"))
 MAX_REGISTRATION_RETRIES = int(os.getenv("MAX_REGISTRATION_RETRIES", "5"))
 INITIAL_RETRY_DELAY = int(os.getenv("INITIAL_RETRY_DELAY", "2"))
+
 
 class AdamAgent(BaseAgent):
     async def chat(self, request: ChatRequest):

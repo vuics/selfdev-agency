@@ -39,7 +39,7 @@ class BaseAgent(ABC):
             os.getenv('HOSTNAME') or      # Docker compose service name
             f'selfdev-{agent_name}-prod'  # Local development fallback
         )
-        
+
         # Use service URL from environment if provided, otherwise construct it
         self.service_url = os.getenv('SERVICE_URL') or f"http://{self.host}:{self.port}/v1"
 

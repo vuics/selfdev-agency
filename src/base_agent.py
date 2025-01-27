@@ -19,17 +19,15 @@ class BaseAgent(ABC):
         self,
         agent_name: str,
         port: int,
-        agency_url: str = "http://localhost:6600/v1",
-        heartbeat_interval: int = 60,
-        max_registration_retries: int = 5,
-        initial_retry_delay: int = 2
     ):
+        # Load common environment variables in base class
+        self.agency_url = os.getenv("AGENCY_URL", "http://localhost:6600/v1")
+        self.heartbeat_interval = int(os.getenv("HEARTBEAT_INTERVAL", "60"))
+        self.max_registration_retries = int(os.getenv("MAX_REGISTRATION_RETRIES", "5"))
+        self.initial_retry_delay = int(os.getenv("INITIAL_RETRY_DELAY", "2"))
+
         self.agent_name = agent_name
         self.port = port
-        self.agency_url = agency_url
-        self.heartbeat_interval = heartbeat_interval
-        self.max_registration_retries = max_registration_retries
-        self.initial_retry_delay = initial_retry_delay
 
         # Get service name from environment variables, with fallbacks for different environments
         # K8s sets POD_NAME and SERVICE_NAME, Docker Compose sets HOSTNAME

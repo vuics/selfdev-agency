@@ -29,6 +29,13 @@ RUN pip install --upgrade pip && \
     python -m nltk.downloader punkt punkt_tab averaged_perceptron_tagger_eng
 
 WORKDIR /opt/app/
+
+# NOTE: The requirements.txt is to cache big number of dependencies.
+COPY requirements.txt ./
+RUN pip install -r requirements.txt
+
+# NOTE: The setup.py will contain additional dependencies.
+# It helps for quick installation of new depenencies.
 COPY setup.py ./
 RUN pip install .
 

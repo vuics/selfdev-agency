@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import os
 import asyncio
-import socket
 import httpx
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -32,12 +31,17 @@ class BaseAgent(ABC):
         self.max_registration_retries = max_registration_retries
         self.initial_retry_delay = initial_retry_delay
 
-        # AI! Is this scalable for N pods?
-        # The gethostname() will give different strings in docker compose
-        # I run it in docker-compose and in Kubernetes pods/services.
-        # Get hostname automatically - will be container name in Docker
-        self.host = socket.gethostname()
-        self.service_url = f"http://{self.host}:{self.port}/v1"
+        # Get service name from environment variables, with fallbacks for different environments
+        # K8s sets POD_NAME and SERVICE_NAME, Docker Compose sets HOSTNAME
+        self.host = (
+            os.getenv('SERVICE_NAME') or  # K8s service name
+            os.getenv('POD_NAME') or      # K8s pod name
+            os.getenv('HOSTNAME') or      # Docker compose service name
+            f'selfdev-{agent_name}-prod'  # Local development fallback
+        )
+        
+        # Use service URL from environment if provided, otherwise construct it
+        self.service_url = os.getenv('SERVICE_URL') or f"http://{self.host}:{self.port}/v1"
 
         self.http_client = httpx.AsyncClient(timeout=30.0)
         self.app = FastAPI(lifespan=self.lifespan)

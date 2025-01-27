@@ -37,6 +37,7 @@ class AdamAgent(BaseAgent):
                 status_code=500
             )
 
+
 # Create a single instance of the agent
 agent = AdamAgent(
     agent_name=AGENT_NAME,

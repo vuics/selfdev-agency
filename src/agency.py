@@ -131,8 +131,9 @@ async def chat(request: ChatRequest):
                     obj = response.json()
                     content.append(f'@{obj["agent"]}: {obj["content"]}')
                 except Exception as err:
+                    obj = response.json()
                     print(f'Failed to parse response from agent {agent_name}: {err}')
-                    content.append(f'@{agent_name}: ERROR - Invalid response format: {str(err)}')
+                    content.append(f'ERROR (@{agent_name}): {str(obj["error"])}')
 
         final_content = '\n\n'.join(content)
         return JSONResponse(

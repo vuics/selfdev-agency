@@ -2,12 +2,17 @@
 import os
 import asyncio
 import httpx
+
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from abc import ABC, abstractmethod
 from pathlib import Path
+
+
+load_dotenv()
 
 
 class ChatRequest(BaseModel):

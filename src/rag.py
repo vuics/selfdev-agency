@@ -16,10 +16,7 @@ The assistant is based on the document:
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-from pathlib import Path
 
 from langchain_openai import ChatOpenAI
 from langchain_openai import OpenAIEmbeddings
@@ -31,6 +28,8 @@ from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langgraph.graph import START, StateGraph
 from typing_extensions import List, TypedDict
+
+from base_agent import BaseAgent, ChatRequest
 
 
 load_dotenv()
@@ -213,48 +212,43 @@ graph_builder = StateGraph(State).add_sequence([retrieve, generate])
 graph_builder.add_edge(START, "retrieve")
 graph = graph_builder.compile()
 
-# API
 
-app = FastAPI()
+# Agent
 
-
-class ChatRequest(BaseModel):
-    prompt: str
-
-
-@app.post("/v1/chat")
-async def chat(request: ChatRequest):
-    try:
-        prompt = request.prompt
-        print('prompt:', prompt)
-        response = graph.invoke({"question": prompt})
-        print('Response:', response)
-        return JSONResponse(
-            content={
-                "result": "ok",
-                "agent": AGENT_NAME,
-                "content": response["answer"],
-            },
-            status_code=200
-        )
-    except Exception as err:
-        print('Chat error:', err)
-        return JSONResponse(
-            content={
-                "result": "error",
-                'error': str(err),
-            },
-            status_code=500
-        )
+class RagAgent(BaseAgent):
+    async def chat(self, request: ChatRequest):
+        try:
+            prompt = request.prompt
+            print('prompt:', prompt)
+            response = graph.invoke({"question": prompt})
+            print('Response:', response)
+            return JSONResponse(
+                content={
+                    "result": "ok",
+                    "agent": AGENT_NAME,
+                    "content": response["answer"],
+                },
+                status_code=200
+            )
+        except Exception as err:
+            print('Chat error:', err)
+            return JSONResponse(
+                content={
+                    "result": "error",
+                    'error': str(err),
+                },
+                status_code=500
+            )
 
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    pass
+# Create a single instance of the agent
+agent = RagAgent(
+    agent_name=AGENT_NAME,
+    port=PORT,
+)
 
+# Export the FastAPI app instance
+app = agent.get_app()
 
 if __name__ == "__main__":
-    import uvicorn
-    module = Path(__file__).stem
-    print('Start module:', module)
-    uvicorn.run(f"{module}:app", host="0.0.0.0", port=PORT, reload=True)
+    agent.run()

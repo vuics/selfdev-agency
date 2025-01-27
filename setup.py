@@ -23,10 +23,7 @@ setuptools.setup(
     'uvicorn==0.34.0',
     'httpx==0.27.2',
     'waitress==2.1.2',
-    'autogen-core==0.4.2',
-    'autogen-agentchat==0.4.2',
-    'autogen-ext[openai]==0.4.2',
-    'autogen-ext[grpc]==0.4.2',
+    'redis==5.2.1',
     'langchain==0.3.14',
     'langchain-core==0.3.30',
     'langchain-community==0.3.14',
@@ -50,15 +47,13 @@ setuptools.setup(
     'google-auth-httplib2==0.2.0',
     'google-auth-oauthlib==1.2.1',
 
-    # 'Flask==3.0.0',
-    # 'Flask[async]==3.0.0',
-    # 'Flask-Cors==4.0.0',
-    # 'requests==2.31.0',
-    # 'safety==3.2.14', get back if possible for `safety check`
-    # 'six==1.16.0',
-    # 'watchdog==3.0.0',
-    # 'watchdog[watchmedo]>=0.10.2',
+    'python-magic==0.4.27',
+
+    # 'autogen-core==0.4.2',
+    # 'autogen-agentchat==0.4.2',
+    # 'autogen-ext[openai]==0.4.2',
+    # 'autogen-ext[grpc]==0.4.2',
+    #
     # 'openai==1.58.1',
-    # 'nest-asyncio==1.6.0',
   ],
 )

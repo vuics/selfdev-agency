@@ -14,12 +14,11 @@ from pathlib import Path
 
 load_dotenv()
 
-# Agency configuration
 AGENCY_URL = os.getenv("AGENCY_URL", "http://localhost:6600/v1")
+AGENT_URL = os.getenv("AGENT_URL", "http://localhost:6601/v1")
 HEARTBEAT_INTERVAL = int(os.getenv("HEARTBEAT_INTERVAL", "60"))
 MAX_REGISTRATION_RETRIES = int(os.getenv("MAX_REGISTRATION_RETRIES", "5"))
 INITIAL_RETRY_DELAY = int(os.getenv("INITIAL_RETRY_DELAY", "2"))
-SERVICE_URL = os.getenv('SERVICE_URL')
 HTTP_CLIENT_TIMEOUT = int(os.getenv("HTTP_CLIENT_TIMEOUT", "300"))
 
 
@@ -57,12 +56,12 @@ class BaseAgent(ABC):
         for attempt in range(MAX_REGISTRATION_RETRIES):
             try:
                 print(f'Attempting to register with agency ({attempt + 1}/{MAX_REGISTRATION_RETRIES})')
-                print(f'Registering with URL: {SERVICE_URL}')
+                print(f'Registering with URL: {AGENT_URL}')
                 response = await self.http_client.post(
                     f"{AGENCY_URL}/register",
                     json={
                         "name": self.agent_name,
-                        "url": SERVICE_URL,
+                        "url": AGENT_URL,
                         "version": "1.0",
                         "description": f"{self.agent_name} agent"
                     },

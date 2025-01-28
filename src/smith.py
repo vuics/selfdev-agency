@@ -23,6 +23,8 @@ PORT = int(os.getenv("PORT", "6603"))
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+
+# AI! instead of OLLAMA_HOST and OLLAMA_PORT use OLLAMA_BASE_URL
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "localhost")
 OLLAMA_PORT = int(os.getenv("OLLAMA_PORT", "11434"))
 

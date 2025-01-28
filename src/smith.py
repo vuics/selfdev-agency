@@ -23,6 +23,7 @@ PORT = int(os.getenv("PORT", "6603"))
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 # providers:
@@ -39,10 +40,7 @@ if LLM_PROVIDER == "openai":
 elif LLM_PROVIDER == "anthropic":
     chat_llm = ChatAnthropic(model=MODEL_NAME, api_key=ANTHROPIC_API_KEY)
 elif LLM_PROVIDER == "ollama":
-    chat_llm = ChatOllama(
-        model=MODEL_NAME,
-        base_url=OLLAMA_BASE_URL
-    )
+    chat_llm = ChatOllama(model=MODEL_NAME, base_url=OLLAMA_BASE_URL)
 else:
     raise ValueError(f"Unknown LLM provider: {LLM_PROVIDER}")
 

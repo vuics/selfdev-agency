@@ -15,6 +15,8 @@ from pathlib import Path
 load_dotenv()
 
 
+HTTP_CLIENT_TIMEOUT = int(os.getenv("HTTP_CLIENT_TIMEOUT", "300"))
+
 class ChatRequest(BaseModel):
     prompt: str
 
@@ -46,7 +48,7 @@ class BaseAgent(ABC):
         # Use service URL from environment if provided, otherwise construct it
         self.service_url = os.getenv('SERVICE_URL') or f"http://{self.host}:{self.port}/v1"
 
-        self.http_client = httpx.AsyncClient(timeout=30.0)
+        self.http_client = httpx.AsyncClient(timeout=HTTP_CLIENT_TIMEOUT)
         self.app = FastAPI(lifespan=self.lifespan)
         self.setup_routes()
 

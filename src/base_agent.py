@@ -120,11 +120,7 @@ class BaseAgent(ABC):
         import uvicorn
         print(f'Start agent: {self.agent_name}')
         host = "0.0.0.0"
-
-# AI! I am getting those errors:
-# self-developing-selfdev-smith-dev-1  |     parsed = urllib.parse(AGENT_URL)
-# self-developing-selfdev-smith-dev-1  |              ^^^^^^^^^^^^^^^^^^^^^^^
-# self-developing-selfdev-smith-dev-1  | TypeError: 'module' object is not callable
-        parsed = urllib.parse(AGENT_URL)
-        print(f'Agent URL: {AGENT_URL} => Listen on {host}:{parsed.port}')
-        uvicorn.run(self.app, host=host, port=parsed.port)
+        parsed = urllib.parse.urlparse(AGENT_URL)
+        port = parsed.port
+        print(f'Agent URL: {AGENT_URL} => Listen on {host}:{port}')
+        uvicorn.run(self.app, host=host, port=port)

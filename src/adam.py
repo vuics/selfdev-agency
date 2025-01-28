@@ -11,7 +11,6 @@ from base_agent import BaseAgent, ChatRequest
 load_dotenv()
 
 AGENT_NAME = os.getenv("AGENT_NAME", "adam")
-PORT = int(os.getenv("PORT", "6601"))
 
 
 class AdamAgent(BaseAgent):
@@ -39,10 +38,7 @@ class AdamAgent(BaseAgent):
 
 
 # Create a single instance of the agent
-agent = AdamAgent(
-    agent_name=AGENT_NAME,
-    port=PORT,
-)
+agent = AdamAgent(agent_name=AGENT_NAME)
 
 # Export the FastAPI app instance
 app = agent.get_app()

@@ -19,11 +19,9 @@ from base_agent import BaseAgent, ChatRequest
 load_dotenv()
 
 AGENT_NAME = os.getenv("AGENT_NAME", "smith")
-PORT = int(os.getenv("PORT", "6603"))
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 # providers:
@@ -35,12 +33,13 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 
+llm = None
 if LLM_PROVIDER == "openai":
-    chat_llm = ChatOpenAI(model=MODEL_NAME, api_key=OPENAI_API_KEY)
+    llm = ChatOpenAI(model=MODEL_NAME, api_key=OPENAI_API_KEY)
 elif LLM_PROVIDER == "anthropic":
-    chat_llm = ChatAnthropic(model=MODEL_NAME, api_key=ANTHROPIC_API_KEY)
+    llm = ChatAnthropic(model=MODEL_NAME, api_key=ANTHROPIC_API_KEY)
 elif LLM_PROVIDER == "ollama":
-    chat_llm = ChatOllama(model=MODEL_NAME, base_url=OLLAMA_BASE_URL)
+    llm = ChatOllama(model=MODEL_NAME, base_url=OLLAMA_BASE_URL)
 else:
     raise ValueError(f"Unknown LLM provider: {LLM_PROVIDER}")
 
@@ -50,7 +49,7 @@ class SmithAgent(BaseAgent):
         try:
             prompt = request.prompt
             print('prompt:', prompt)
-            ai_msg = chat_llm.invoke(prompt)
+            ai_msg = llm.invoke(prompt)
             print("ai_msg:", ai_msg.content)
             return JSONResponse(
                 content={
@@ -72,10 +71,7 @@ class SmithAgent(BaseAgent):
 
 
 # Create a single instance of the agent
-agent = SmithAgent(
-    agent_name=AGENT_NAME,
-    port=PORT,
-)
+agent = SmithAgent(agent_name=AGENT_NAME)
 
 # Export the FastAPI app instance
 app = agent.get_app()

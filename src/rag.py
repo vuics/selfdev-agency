@@ -18,9 +18,8 @@ import os
 from dotenv import load_dotenv
 from fastapi.responses import JSONResponse
 
-from langchain_openai import ChatOpenAI
-from langchain_openai import OpenAIEmbeddings
-from langchain_ollama import OllamaEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_community.document_loaders import DirectoryLoader
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain import hub
@@ -35,12 +34,16 @@ from base_agent import BaseAgent, ChatRequest
 load_dotenv()
 
 AGENT_NAME = os.getenv("AGENT_NAME", "rag")
-PORT = int(os.getenv("PORT", "6604"))
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
-EMBEDDINGS_NAME = os.getenv("EMBEDDING_MODEL", "text-embedding-3-large")
+# openai:
+EMBEDDINGS_MODEL = os.getenv("EMBEDDINGS_MODEL", "text-embedding-3-large")
+# ollama:
+# EMBEDDINGS_MODEL = os.getenv("EMBEDDINGS_MODEL", "mxbai-embed-large:latest")
 
 VECTOR_STORE = os.getenv("VECTOR_STORE", "in-memory")
 
@@ -58,9 +61,10 @@ llm = None
 embeddings = None
 if LLM_PROVIDER == "openai":
     llm = ChatOpenAI(model=MODEL_NAME, api_key=OPENAI_API_KEY)
-    embeddings = OpenAIEmbeddings(model=EMBEDDINGS_NAME)
+    embeddings = OpenAIEmbeddings(model=EMBEDDINGS_MODEL)
 elif LLM_PROVIDER == "ollama":
-    embeddings = OllamaEmbeddings(model=MODEL_NAME)
+    llm = ChatOllama(model=MODEL_NAME, base_url=OLLAMA_BASE_URL)
+    embeddings = OllamaEmbeddings(model=MODEL_NAME, base_url=OLLAMA_BASE_URL)
 else:
     raise Exception(f"Unknown LLM provider: {LLM_PROVIDER}")
 
@@ -242,10 +246,7 @@ class RagAgent(BaseAgent):
 
 
 # Create a single instance of the agent
-agent = RagAgent(
-    agent_name=AGENT_NAME,
-    port=PORT,
-)
+agent = RagAgent(agent_name=AGENT_NAME)
 
 # Export the FastAPI app instance
 app = agent.get_app()

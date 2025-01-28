@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from abc import ABC, abstractmethod
 from pathlib import Path
+import urllib.parse
 
 
 load_dotenv()
@@ -30,11 +31,8 @@ class BaseAgent(ABC):
     def __init__(
         self,
         agent_name: str,
-        port: int,
     ):
         self.agent_name = agent_name
-        self.port = port
-
         self.http_client = httpx.AsyncClient(timeout=HTTP_CLIENT_TIMEOUT)
         self.app = FastAPI(lifespan=self.lifespan)
         self.setup_routes()
@@ -120,5 +118,13 @@ class BaseAgent(ABC):
     def run(self):
         """Run the agent"""
         import uvicorn
-        print('Start agent:', self.agent_name)
-        uvicorn.run(self.app, host="0.0.0.0", port=self.port)
+        print(f'Start agent: {self.agent_name}')
+        host = "0.0.0.0"
+
+# AI! I am getting those errors:
+# self-developing-selfdev-smith-dev-1  |     parsed = urllib.parse(AGENT_URL)
+# self-developing-selfdev-smith-dev-1  |              ^^^^^^^^^^^^^^^^^^^^^^^
+# self-developing-selfdev-smith-dev-1  | TypeError: 'module' object is not callable
+        parsed = urllib.parse(AGENT_URL)
+        print(f'Agent URL: {AGENT_URL} => Listen on {host}:{parsed.port}')
+        uvicorn.run(self.app, host=host, port=parsed.port)

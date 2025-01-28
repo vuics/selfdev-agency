@@ -14,7 +14,12 @@ from pathlib import Path
 
 load_dotenv()
 
-
+# Agency configuration
+AGENCY_URL = os.getenv("AGENCY_URL", "http://localhost:6600/v1")
+HEARTBEAT_INTERVAL = int(os.getenv("HEARTBEAT_INTERVAL", "60"))
+MAX_REGISTRATION_RETRIES = int(os.getenv("MAX_REGISTRATION_RETRIES", "5"))
+INITIAL_RETRY_DELAY = int(os.getenv("INITIAL_RETRY_DELAY", "2"))
+SERVICE_URL = os.getenv('SERVICE_URL')
 HTTP_CLIENT_TIMEOUT = int(os.getenv("HTTP_CLIENT_TIMEOUT", "300"))
 
 
@@ -28,13 +33,6 @@ class BaseAgent(ABC):
         agent_name: str,
         port: int,
     ):
-        # AI! Instead of self.agency_url use environmenbt variables in captal letters like the AGENCY_URL. Load those environment variables after load_dotenv() call above. Do not use this self.variable_name format for all the env vars loaded from the environment.
-        self.agency_url = os.getenv("AGENCY_URL", "http://localhost:6600/v1")
-        self.heartbeat_interval = int(os.getenv("HEARTBEAT_INTERVAL", "60"))
-        self.max_registration_retries = int(os.getenv("MAX_REGISTRATION_RETRIES", "5"))
-        self.initial_retry_delay = int(os.getenv("INITIAL_RETRY_DELAY", "2"))
-        self.service_url = os.getenv('SERVICE_URL')
-
         self.agent_name = agent_name
         self.port = port
 
@@ -54,17 +52,17 @@ class BaseAgent(ABC):
     async def lifespan(self, app: FastAPI):
         """Lifespan context manager for startup/shutdown events"""
         # Startup
-        retry_delay = self.initial_retry_delay
+        retry_delay = INITIAL_RETRY_DELAY
 
-        for attempt in range(self.max_registration_retries):
+        for attempt in range(MAX_REGISTRATION_RETRIES):
             try:
-                print(f'Attempting to register with agency ({attempt + 1}/{self.max_registration_retries})')
-                print(f'Registering with URL: {self.service_url}')
+                print(f'Attempting to register with agency ({attempt + 1}/{MAX_REGISTRATION_RETRIES})')
+                print(f'Registering with URL: {SERVICE_URL}')
                 response = await self.http_client.post(
-                    f"{self.agency_url}/register",
+                    f"{AGENCY_URL}/register",
                     json={
                         "name": self.agent_name,
-                        "url": self.service_url,
+                        "url": SERVICE_URL,
                         "version": "1.0",
                         "description": f"{self.agent_name} agent"
                     },
@@ -87,18 +85,18 @@ class BaseAgent(ABC):
             except Exception as e:
                 print(f"Unexpected error on attempt {attempt + 1}: {str(e)}")
 
-            if attempt < self.max_registration_retries - 1:
+            if attempt < MAX_REGISTRATION_RETRIES - 1:
                 print(f"Retrying in {retry_delay} seconds...")
                 await asyncio.sleep(retry_delay)
                 retry_delay *= 2  # Exponential backoff
             else:
-                print(f"Failed to register with agency after {self.max_registration_retries} attempts")
+                print(f"Failed to register with agency after {MAX_REGISTRATION_RETRIES} attempts")
 
         yield  # Server is running
 
         # Shutdown
         try:
-            response = await self.http_client.delete(f"{self.agency_url}/unregister/{self.agent_name}")
+            response = await self.http_client.delete(f"{AGENCY_URL}/unregister/{self.agent_name}")
             print(f"Unregistration response: {response.status_code}")
             await self.http_client.aclose()
         except Exception as e:
@@ -108,12 +106,12 @@ class BaseAgent(ABC):
         """Periodically send heartbeats to the agency"""
         while True:
             try:
-                response = await self.http_client.post(f"{self.agency_url}/heartbeat/{self.agent_name}")
+                response = await self.http_client.post(f"{AGENCY_URL}/heartbeat/{self.agent_name}")
                 if response.status_code != 200:
                     print(f"Heartbeat failed: {response.text}")
             except Exception as e:
                 print(f"Failed to send heartbeat: {e}")
-            await asyncio.sleep(self.heartbeat_interval)
+            await asyncio.sleep(HEARTBEAT_INTERVAL)
 
     @abstractmethod
     async def chat(self, request: ChatRequest):

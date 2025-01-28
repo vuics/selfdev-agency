@@ -17,6 +17,7 @@ load_dotenv()
 
 HTTP_CLIENT_TIMEOUT = int(os.getenv("HTTP_CLIENT_TIMEOUT", "300"))
 
+
 class ChatRequest(BaseModel):
     prompt: str
 
@@ -32,21 +33,10 @@ class BaseAgent(ABC):
         self.heartbeat_interval = int(os.getenv("HEARTBEAT_INTERVAL", "60"))
         self.max_registration_retries = int(os.getenv("MAX_REGISTRATION_RETRIES", "5"))
         self.initial_retry_delay = int(os.getenv("INITIAL_RETRY_DELAY", "2"))
+        self.service_url = os.getenv('SERVICE_URL')
 
         self.agent_name = agent_name
         self.port = port
-
-        # Get service name from environment variables, with fallbacks for different environments
-        # K8s sets POD_NAME and SERVICE_NAME, Docker Compose sets HOSTNAME
-        self.host = (
-            os.getenv('SERVICE_NAME') or  # K8s service name
-            os.getenv('POD_NAME') or      # K8s pod name
-            os.getenv('HOSTNAME') or      # Docker compose service name
-            f'selfdev-{agent_name}-prod'  # Local development fallback
-        )
-
-        # Use service URL from environment if provided, otherwise construct it
-        self.service_url = os.getenv('SERVICE_URL') or f"http://{self.host}:{self.port}/v1"
 
         self.http_client = httpx.AsyncClient(timeout=HTTP_CLIENT_TIMEOUT)
         self.app = FastAPI(lifespan=self.lifespan)

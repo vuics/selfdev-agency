@@ -38,6 +38,7 @@ if LLM_PROVIDER == "openai":
 elif LLM_PROVIDER == "anthropic":
     chat_llm = ChatAnthropic(model=MODEL_NAME, api_key=ANTHROPIC_API_KEY)
 elif LLM_PROVIDER == "ollama":
+    # AI! Add ability to connect to Ollama on a different host and port (load from env variables).
     chat_llm = ChatOllama(model=MODEL_NAME)
 else:
     raise ValueError(f"Unknown LLM provider: {LLM_PROVIDER}")

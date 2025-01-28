@@ -132,9 +132,4 @@ class BaseAgent(ABC):
         """Run the agent"""
         import uvicorn
         print('Start agent:', self.agent_name)
-        # Use the actual Python file that created this instance
-        # AI! Now after your changes, I get another error: self-developing-selfdev-ollama-dev-1  | ERROR:    Error loading ASGI app. Attribute "app" not found in module "ollama".
-        module = Path(__file__).parent / Path(self.__class__.__module__ + ".py")
-        print('module:', module)
-        print('1:', self.__class__.__module__)
-        uvicorn.run(f"{module.stem}:app", host="0.0.0.0", port=self.port, reload=True)
+        uvicorn.run(self.app, host="0.0.0.0", port=self.port)

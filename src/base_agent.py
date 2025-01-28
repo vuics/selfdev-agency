@@ -28,7 +28,7 @@ class BaseAgent(ABC):
         agent_name: str,
         port: int,
     ):
-        # Load common environment variables in base class
+        # AI! Instead of self.agency_url use environmenbt variables in captal letters like the AGENCY_URL. Load those environment variables after load_dotenv() call above. Do not use this self.variable_name format for all the env vars loaded from the environment.
         self.agency_url = os.getenv("AGENCY_URL", "http://localhost:6600/v1")
         self.heartbeat_interval = int(os.getenv("HEARTBEAT_INTERVAL", "60"))
         self.max_registration_retries = int(os.getenv("MAX_REGISTRATION_RETRIES", "5"))

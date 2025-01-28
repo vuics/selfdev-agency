@@ -132,6 +132,6 @@ class BaseAgent(ABC):
         """Run the agent"""
         import uvicorn
         print('Start agent:', self.agent_name)
-        # AI! the folling code produce an error: the self.agent_name is set to 'ollama' but file name is 'smith.py'. When the self.agent_name was 'smith', it worked well. Now I get an error: `ERROR:    Error loading ASGI app. Attribute "app" not found in module "ollama".`
-        module = Path(__file__).parent / Path(self.agent_name + ".py")
+        # Use the actual Python file that created this instance
+        module = Path(__file__).parent / Path(self.__class__.__module__ + ".py")
         uvicorn.run(f"{module.stem}:app", host="0.0.0.0", port=self.port, reload=True)

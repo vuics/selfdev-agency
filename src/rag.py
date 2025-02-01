@@ -125,39 +125,10 @@ elif VECTOR_STORE == "chroma":
         print(f"Error creating Chroma client: {e}")
         raise
 elif VECTOR_STORE == "weaviate":
-  # AI! Fix the error below:
-# self-developing-selfdev-rag-dev-1     | Traceback (most recent call last):
-# self-developing-selfdev-rag-dev-1     |   File "/opt/app/src/rag.py", line 148, in <module>
-# self-developing-selfdev-rag-dev-1     |
-# self-developing-selfdev-rag-dev-1     | vector_store = Weaviate(
-# self-developing-selfdev-rag-dev-1     |                    ^^^^^^^^^
-# self-developing-selfdev-rag-dev-1     |   File "/usr/local/lib/python3.11/site-packages/langchain_community/vectorstores/weaviate.py", line 105, in __init__
-# self-developing-selfdev-rag-dev-1     |     raise ValueError(
-# self-developing-selfdev-rag-dev-1     | ValueError
-# self-developing-selfdev-rag-dev-1     | : client should be an instance of weaviate.Client, got <class 'weaviate.client.WeaviateClient'>
-# self-developing-selfdev-rag-dev-1     | /usr/local/lib/python3.11/site-packages/weaviate/warnings.py:314: ResourceWarning: Con004: The connection to Weaviate was not closed properly. This can lead to memory leaks.
-# self-developing-selfdev-rag-dev-1     |             Please make sure to close the connection using `client.close()`.
-# self-developing-selfdev-rag-dev-1     | /usr/local/lib/python3.11/asyncio/selector_events.py:868: ResourceWarning: unclosed transport <_SelectorSocketTransport fd=6 read=idle write=<idle, bufsize=0>>
-    client = weaviate.connect_to_custom(
-        http_host=WEAVIATE_HTTP_HOST,
-        http_port=WEAVIATE_HTTP_PORT,
-        http_secure=WEAVIATE_HTTP_SECURE,
-        grpc_host=WEAVIATE_GRPC_HOST,
-        grpc_port=WEAVIATE_GRPC_PORT,
-        grpc_secure=WEAVIATE_GRPC_SECURE,
+    weaviate_url = f"http://{WEAVIATE_HTTP_HOST}:{WEAVIATE_HTTP_PORT}"
+    client = weaviate.Client(
+        url=weaviate_url
     )
-    # client = weaviate.WeaviateAsyncClient(
-    #     connection_params=ConnectionParams.from_params(
-    #         http_host=WEAVIATE_HTTP_HOST,
-    #         http_port=WEAVIATE_HTTP_PORT,
-    #         http_secure=WEAVIATE_HTTP_SECURE,
-    #         grpc_host=WEAVIATE_GRPC_HOST,
-    #         grpc_port=WEAVIATE_GRPC_PORT,
-    #         grpc_secure=WEAVIATE_GRPC_SECURE,
-    #     ),
-    #     # Additional settings not shown
-    # )
-    # await client.connect()
     vector_store = Weaviate(
         client=client,
         index_name=WEAVIATE_INDEX,

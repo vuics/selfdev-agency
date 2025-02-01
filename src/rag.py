@@ -73,6 +73,12 @@ CHROMA_DIRECTORY = os.getenv("CHROMA_DIRECTORY", "./chroma_db")  # directory onl
 # Weaviate settings
 WEAVIATE_URL = os.getenv("WEAVIATE_URL", "http://localhost:8080")
 WEAVIATE_INDEX = os.getenv("WEAVIATE_INDEX", f"{AGENT_NAME}_index")
+WEAVIATE_HTTP_HOST = os.getenv("WEAVIATE_HTTP_HOST", "localhost")
+WEAVIATE_HTTP_PORT = int(os.getenv("WEAVIATE_HTTP_PORT", "8080"))
+WEAVIATE_HTTP_SECURE = str_to_bool(os.getenv("WEAVIATE_HTTP_SECURE", "false"))
+WEAVIATE_GRPC_HOST = os.getenv("WEAVIATE_GRPC_HOST", "localhost")
+WEAVIATE_GRPC_PORT = int(os.getenv("WEAVIATE_GRPC_PORT", "50051"))
+WEAVIATE_GRPC_SECURE = str_to_bool(os.getenv("WEAVIATE_GRPC_SECURE", "false"))
 
 # TODO: Should I move loaders to a separate script?
 DIRECTORY_LOADER = str_to_bool(os.getenv("DIRECTORY_LOADER", "false"))
@@ -132,13 +138,12 @@ elif VECTOR_STORE == "weaviate":
     # )
     client = weaviate.WeaviateAsyncClient(
         connection_params=ConnectionParams.from_params(
-            # AI! Add evn vars for the following params:
-            http_host="localhost",
-            http_port=8099,
-            http_secure=False,
-            grpc_host="localhost",
-            grpc_port=50052,
-            grpc_secure=False,
+            http_host=WEAVIATE_HTTP_HOST,
+            http_port=WEAVIATE_HTTP_PORT,
+            http_secure=WEAVIATE_HTTP_SECURE,
+            grpc_host=WEAVIATE_GRPC_HOST,
+            grpc_port=WEAVIATE_GRPC_PORT,
+            grpc_secure=WEAVIATE_GRPC_SECURE,
         ),
         # Additional settings not shown
     )

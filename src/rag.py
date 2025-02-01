@@ -125,26 +125,10 @@ elif VECTOR_STORE == "chroma":
         print(f"Error creating Chroma client: {e}")
         raise
 elif VECTOR_STORE == "weaviate":
-  # AI! Fix the error:
-# self-developing-selfdev-rag-dev-1  | /opt/app/src/rag.py:129: DeprecationWarning:
-# self-developing-selfdev-rag-dev-1  | Python client v3 `weaviate.Client(...)` has been removed.
-# self-developing-selfdev-rag-dev-1  |
-# self-developing-selfdev-rag-dev-1  |
-# self-developing-selfdev-rag-dev-1  | Upgrade your code to use Python client v4 `weaviate.WeaviateClient` connections and methods.
-# self-developing-selfdev-rag-dev-1  |     - For Python Client v4 usage, see: https://weaviate.io/developers/weaviate/client-libraries/python
-# self-developing-selfdev-rag-dev-1  |     - For code migration, see: https://weaviate.io/developers/weaviate/client-libraries/python/v3_v4_migration
-# self-developing-selfdev-rag-dev-1  |
-# self-developing-selfdev-rag-dev-1  |
-# self-developing-selfdev-rag-dev-1  | If you have to use v3 code, install the v3 client and pin the v3 dependency in your requirements file: `weaviate-client>=3.26.7;<4.0.0`
-# self-developing-selfdev-rag-dev-1  |   client = weaviate.Client(
-# self-developing-selfdev-rag-dev-1  | Traceback (most recent call last):
-# self-developing-selfdev-rag-dev-1  |   File "/opt/app/src/rag.py", line 129, in <module>
-# self-developing-selfdev-rag-dev-1  |     client = weaviate.Client(
-# self-developing-selfdev-rag-dev-1  |              ^^^^^^^^^^^^^^^^
-# self-developing-selfdev-rag-dev-1  | TypeError: Client.__init__() got an unexpected keyword argument 'url'
-    weaviate_url = f"http://{WEAVIATE_HTTP_HOST}:{WEAVIATE_HTTP_PORT}"
-    client = weaviate.Client(
-        url=weaviate_url
+    client = weaviate.connect.Client(
+        connection_params=weaviate.connect.ConnectionParams.from_url(
+            f"http://{WEAVIATE_HTTP_HOST}:{WEAVIATE_HTTP_PORT}"
+        )
     )
     vector_store = Weaviate(
         client=client,

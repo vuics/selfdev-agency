@@ -41,8 +41,8 @@ from bs4 import SoupStrainer
 from langchain_googledrive.document_loaders import GoogleDriveLoader  # Use the advanced version.
 from langchain_community.document_loaders import UnstructuredFileIOLoader
 import weaviate
-from weaviate.connect import ConnectionParams
-from weaviate import WeaviateAsyncClient
+# from weaviate.connect import ConnectionParams
+# from weaviate import WeaviateAsyncClient
 
 
 from base_agent import BaseAgent, ChatRequest
@@ -68,10 +68,10 @@ VECTOR_STORE = os.getenv("VECTOR_STORE", "memory")  # memory, chroma, weaviate
 CHROMA_TYPE = os.getenv("CHROMA_TYPE", "host")  # host, directory
 CHROMA_HOST = os.getenv("CHROMA_HOST", "localhost")  # host only
 CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))  # host only
+CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION", f"{AGENT_NAME}_collection")
 CHROMA_DIRECTORY = os.getenv("CHROMA_DIRECTORY", "./chroma_db")  # directory only
 
 # Weaviate settings
-WEAVIATE_URL = os.getenv("WEAVIATE_URL", "http://localhost:8080")
 WEAVIATE_INDEX = os.getenv("WEAVIATE_INDEX", f"{AGENT_NAME}_index")
 WEAVIATE_HTTP_HOST = os.getenv("WEAVIATE_HTTP_HOST", "localhost")
 WEAVIATE_HTTP_PORT = int(os.getenv("WEAVIATE_HTTP_PORT", "8080"))
@@ -116,38 +116,48 @@ elif VECTOR_STORE == "chroma":
     try:
         if CHROMA_TYPE == "host":
             chroma_client = chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)
-            vector_store = Chroma(client=chroma_client, collection_name=f"{AGENT_NAME}_collection", embedding_function=embeddings)
+            vector_store = Chroma(client=chroma_client, collection_name=CHROMA_COLLECTION, embedding_function=embeddings)
         elif CHROMA_TYPE == "directory":
-            vector_store = Chroma(persist_directory=CHROMA_DIRECTORY, collection_name=f"{AGENT_NAME}_collection", embedding_function=embeddings)
+            vector_store = Chroma(persist_directory=CHROMA_DIRECTORY, collection_name=CHROMA_COLLECTION, embedding_function=embeddings)
         else:
             raise Exception(f"Unknown chroma type: {CHROMA_TYPE}")
     except Exception as e:
         print(f"Error creating Chroma client: {e}")
         raise
 elif VECTOR_STORE == "weaviate":
-    # client = weaviate.connect_to_custom(
-    #     http_host="localhost",
-    #     http_port=8080,
-    #     http_secure=False,
-    #     grpc_host="localhost",
-    #     grpc_port=50051,
-    #     grpc_secure=False,
-    #     headers={
-    #         "X-OpenAI-Api-Key": os.getenv("OPENAI_APIKEY")  # Or any other inference API keys
-    #     }
-    # )
-    client = weaviate.WeaviateAsyncClient(
-        connection_params=ConnectionParams.from_params(
-            http_host=WEAVIATE_HTTP_HOST,
-            http_port=WEAVIATE_HTTP_PORT,
-            http_secure=WEAVIATE_HTTP_SECURE,
-            grpc_host=WEAVIATE_GRPC_HOST,
-            grpc_port=WEAVIATE_GRPC_PORT,
-            grpc_secure=WEAVIATE_GRPC_SECURE,
-        ),
-        # Additional settings not shown
+  # AI! Fix the error below:
+# self-developing-selfdev-rag-dev-1     | Traceback (most recent call last):
+# self-developing-selfdev-rag-dev-1     |   File "/opt/app/src/rag.py", line 148, in <module>
+# self-developing-selfdev-rag-dev-1     |
+# self-developing-selfdev-rag-dev-1     | vector_store = Weaviate(
+# self-developing-selfdev-rag-dev-1     |                    ^^^^^^^^^
+# self-developing-selfdev-rag-dev-1     |   File "/usr/local/lib/python3.11/site-packages/langchain_community/vectorstores/weaviate.py", line 105, in __init__
+# self-developing-selfdev-rag-dev-1     |     raise ValueError(
+# self-developing-selfdev-rag-dev-1     | ValueError
+# self-developing-selfdev-rag-dev-1     | : client should be an instance of weaviate.Client, got <class 'weaviate.client.WeaviateClient'>
+# self-developing-selfdev-rag-dev-1     | /usr/local/lib/python3.11/site-packages/weaviate/warnings.py:314: ResourceWarning: Con004: The connection to Weaviate was not closed properly. This can lead to memory leaks.
+# self-developing-selfdev-rag-dev-1     |             Please make sure to close the connection using `client.close()`.
+# self-developing-selfdev-rag-dev-1     | /usr/local/lib/python3.11/asyncio/selector_events.py:868: ResourceWarning: unclosed transport <_SelectorSocketTransport fd=6 read=idle write=<idle, bufsize=0>>
+    client = weaviate.connect_to_custom(
+        http_host=WEAVIATE_HTTP_HOST,
+        http_port=WEAVIATE_HTTP_PORT,
+        http_secure=WEAVIATE_HTTP_SECURE,
+        grpc_host=WEAVIATE_GRPC_HOST,
+        grpc_port=WEAVIATE_GRPC_PORT,
+        grpc_secure=WEAVIATE_GRPC_SECURE,
     )
-    await client.connect()
+    # client = weaviate.WeaviateAsyncClient(
+    #     connection_params=ConnectionParams.from_params(
+    #         http_host=WEAVIATE_HTTP_HOST,
+    #         http_port=WEAVIATE_HTTP_PORT,
+    #         http_secure=WEAVIATE_HTTP_SECURE,
+    #         grpc_host=WEAVIATE_GRPC_HOST,
+    #         grpc_port=WEAVIATE_GRPC_PORT,
+    #         grpc_secure=WEAVIATE_GRPC_SECURE,
+    #     ),
+    #     # Additional settings not shown
+    # )
+    # await client.connect()
     vector_store = Weaviate(
         client=client,
         index_name=WEAVIATE_INDEX,

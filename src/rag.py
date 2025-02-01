@@ -30,7 +30,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langgraph.graph import START, StateGraph
 from typing_extensions import List, TypedDict
 import chromadb
-from chromadb.config import Settings
+# from chromadb.config import Settings
 import httpx
 from httpx import HTTPError
 
@@ -52,32 +52,17 @@ EMBEDDINGS_MODEL = os.getenv("EMBEDDINGS_MODEL", "text-embedding-3-large")
 # EMBEDDINGS_MODEL = os.getenv("EMBEDDINGS_MODEL", "mxbai-embed-large:latest")
 
 VECTOR_STORE = os.getenv("VECTOR_STORE", "memory")  # memory, chroma
-CHROMA_HOST = os.getenv("CHROMA_HOST", "localhost")
-CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8121"))
-# CHROMA_DIRECTORY = os.getenv("CHROMA_DIRECTORY", "./chroma_db")
+
+CHROMA_TYPE = os.getenv("CHROMA_TYPE", "host")  # host, directory
+CHROMA_HOST = os.getenv("CHROMA_HOST", "localhost")  # host only
+CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))  # host only
+CHROMA_DIRECTORY = os.getenv("CHROMA_DIRECTORY", "./chroma_db")  # directory only
 
 DIRECTORY_LOADER_PATH = os.getenv("DIRECTORY_LOADER_PATH", "./input")
 DIRECOTRY_LOADER_GLOB = os.getenv("DIRECTORY_LOADER_GLOB", "**/*.*")
 
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 GOOGLE_TOKEN = os.getenv("GOOGLE_TOKEN", "./google_token.json")
-
-
-def wait_for_chroma(host=CHROMA_HOST, port=CHROMA_PORT, max_retries=5, retry_delay=2):
-    """Wait for Chroma server to be ready"""
-    url = f"http://{host}:{port}/api/v1/heartbeat"
-    for i in range(max_retries):
-        try:
-            with httpx.Client(timeout=10.0) as client:
-                response = client.get(url)
-                if response.status_code == 200:
-                    print("Successfully connected to Chroma server")
-                    return True
-        except HTTPError as e:
-            print('http error:', e)
-            print(f"Attempt {i+1}/{max_retries}: Chroma server not ready yet. Retrying in {retry_delay} seconds...")
-            time.sleep(retry_delay)
-    raise ConnectionError("Could not connect to Chroma server after maximum retries")
 
 
 # Load LLM and embeddings
@@ -99,25 +84,17 @@ vector_store = None
 if VECTOR_STORE == "memory":
     vector_store = InMemoryVectorStore(embeddings)
 elif VECTOR_STORE == "chroma":
-    # wait_for_chroma()
     try:
-        wait_for_chroma()
-        chroma_client = chromadb.HttpClient(
-            host=CHROMA_HOST,
-            port=CHROMA_PORT,
-            settings=Settings(
-                anonymized_telemetry=False
-            ))
+        if CHROMA_TYPE == "host":
+            chroma_client = chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)
+            vector_store = Chroma(client=chroma_client, collection_name=f"{AGENT_NAME}_collection", embedding_function=embeddings)
+        elif CHROMA_HOST == "directory":
+            vector_store = Chroma(persist_directory=CHROMA_DIRECTORY, collection_name=f"{AGENT_NAME}_collection", embedding_function=embeddings)
+        else:
+            raise Exception(f"Unknown chroma type: {CHROMA_TYPE}")
     except Exception as e:
         print(f"Error creating Chroma client: {e}")
         raise
-#    try:
-#        collection = chroma_client.get_or_create_collection(name=f"{AGENT_NAME}_collection")
-#    except Exception as e:
-#        print(f"Error creating/getting collection: {e}")
-#        return None
-    vector_store = Chroma(client=chroma_client, collection_name=f"{AGENT_NAME}_collection", embedding_function=embeddings)
-#     vector_store = Chroma(collection_name=f"{AGENT_NAME}_collection", embedding_function=embeddings, persist_directory=CHROMA_DIRECTORY)
 else:
     raise Exception(f"Unknown vector store: {VECTOR_STORE}")
 print('Vector store:', VECTOR_STORE)
@@ -142,20 +119,18 @@ docs = loader.load()
 print("WebBaseLoader> documents loaded:", len(docs))
 """
 
-# DirectoryLoader
-# import nltk
-# nltk.download('punkt_tab')
-# nltk.download('averaged_perceptron_tagger_eng')
-#
-loader = DirectoryLoader(
-  DIRECTORY_LOADER_PATH,  # "./input",
-  DIRECOTRY_LOADER_GLOB,  # glob="**/*.*",
-  # show_progress=True,
-  show_progress=False,
-  use_multithreading=True
-)
-docs = loader.load()
-print("DirectoryLoader> documents loaded:", len(docs))
+# AI! Read the environment variable with boolean type 
+if DIRECTORY_LOADER:
+    # DirectoryLoader
+    loader = DirectoryLoader(
+      DIRECTORY_LOADER_PATH,  # "./input",
+      DIRECOTRY_LOADER_GLOB,  # glob="**/*.*",
+      # show_progress=True,
+      show_progress=False,
+      use_multithreading=True
+    )
+    docs = loader.load()
+    print("DirectoryLoader> documents loaded:", len(docs))
 
 # GoogleDriveLoader
 """

@@ -58,6 +58,7 @@ CHROMA_HOST = os.getenv("CHROMA_HOST", "localhost")  # host only
 CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))  # host only
 CHROMA_DIRECTORY = os.getenv("CHROMA_DIRECTORY", "./chroma_db")  # directory only
 
+DIRECTORY_LOADER = os.getenv("DIRECTORY_LOADER", "true").lower() == "true"
 DIRECTORY_LOADER_PATH = os.getenv("DIRECTORY_LOADER_PATH", "./input")
 DIRECOTRY_LOADER_GLOB = os.getenv("DIRECTORY_LOADER_GLOB", "**/*.*")
 
@@ -119,7 +120,6 @@ docs = loader.load()
 print("WebBaseLoader> documents loaded:", len(docs))
 """
 
-# AI! Read the environment variable with boolean type 
 if DIRECTORY_LOADER:
     # DirectoryLoader
     loader = DirectoryLoader(

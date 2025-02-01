@@ -110,6 +110,7 @@ elif VECTOR_STORE == "chroma":
     except Exception as e:
         print(f"Error creating Chroma client: {e}")
         raise
+# AI! Add the Weaviate vector store in LangChain. Add all the necessary env vars. The weaviate client should be able to connect in a weaviate running in another docker container. The authentication should be disabled for weaviate. 
 else:
     raise Exception(f"Unknown vector store: {VECTOR_STORE}")
 print('Vector store:', VECTOR_STORE)

@@ -187,11 +187,12 @@ if DIRECTORY_LOADER:
 if WEB_BASE_LOADER:
     loader = WebBaseLoader(
         web_paths=tuple(WEB_BASE_PATHS),
-        # bs_kwargs=dict(
-        #     parse_only=SoupStrainer(
-        #         class_=("post-content", "post-title", "post-header")
-        #     )
-        # ),
+        js_render=True,  # Enable JavaScript rendering
+        js_render_options={
+            "browser": "chromium",
+            "headless": True,
+            "executable_path": "/usr/bin/chromium"
+        }
     )
     docs_loaded = loader.load()
     print("WebBaseLoader> documents loaded:", len(docs_loaded))

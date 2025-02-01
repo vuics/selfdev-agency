@@ -161,18 +161,19 @@ elif VECTOR_STORE == "weaviate":
 # self-developing-selfdev-rag-dev-1  |     client = weaviate.connect.Client(
 # self-developing-selfdev-rag-dev-1  |              ^^^^^^^^^^^^^^^^^^^^^^^
 # self-developing-selfdev-rag-dev-1  | AttributeError: module 'weaviate.connect' has no attribute 'Client'
-    client = weaviate.connect.Client(
-        connection_params=weaviate.connect.ConnectionParams.from_url(
-            f"http://{WEAVIATE_HTTP_HOST}:{WEAVIATE_HTTP_PORT}"
+    try:
+        weaviate_url = f"http://{WEAVIATE_HTTP_HOST}:{WEAVIATE_HTTP_PORT}"
+        client = weaviate.Client(url=weaviate_url)
+        vector_store = Weaviate(
+            client=client,
+            index_name=WEAVIATE_INDEX,
+            text_key="text",
+            embedding=embeddings,
+            by_text=False
         )
-    )
-    vector_store = Weaviate(
-        client=client,
-        index_name=WEAVIATE_INDEX,
-        text_key="text",
-        embedding=embeddings,
-        by_text=False
-    )
+    except Exception as e:
+        print(f"Error creating Weaviate client: {e}")
+        raise
 else:
     raise Exception(f"Unknown vector store: {VECTOR_STORE}")
 print('Vector store:', VECTOR_STORE)

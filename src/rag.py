@@ -113,6 +113,13 @@ print('Vector store:', VECTOR_STORE)
 # Document Loaders
 docs = []
 
+# AI! Add TEXT_LOADER env var. Also, load texts from files specified through env variable that contains a JSON with array of file paths.
+if TEXT_LOADER:
+    loader = TextLoader("state_of_the_union.txt")
+    docs_loaded = loader.load()
+    print("TextLoader> documents loaded:", len(docs_loaded))
+    docs += docs_loaded
+
 if DIRECTORY_LOADER:
     loader = DirectoryLoader(
       DIRECTORY_LOADER_PATH,

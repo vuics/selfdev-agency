@@ -196,6 +196,25 @@ if GOOGLE_DRIVE_LOADER:
     # import webbrowser
     # webbrowser.register('chromium', None) # , None,webbrowser.BackgroundBrowser('chrome_path'),1)
 
+# AI! fix the error below. I do not have installed chrome in docker container. The crome does not have configuration for arm64 (Apple M1 processor). As an option to configure Chromium and install chromium to docker contianer in Dockerfile.
+# self-developing-selfdev-rag-dev-1  | Traceback (most recent call last):
+# self-developing-selfdev-rag-dev-1  |   File "/opt/app/src/rag.py", line 199, in <module>
+# self-developing-selfdev-rag-dev-1  |     loader = GoogleDriveLoader(
+# self-developing-selfdev-rag-dev-1  |              ^^^^^^^^^^^^^^^^^^
+# self-developing-selfdev-rag-dev-1  |   File "/usr/local/lib/python3.11/site-packages/langchain_googledrive/document_loaders/google_drive.py", line 349, in __init__
+# self-developing-selfdev-rag-dev-1  |     super().__init__(**kwargs)
+# self-developing-selfdev-rag-dev-1  |   File "/usr/local/lib/python3.11/site-packages/langchain_googledrive/utilities/google_drive.py", line 918, in __init__
+# self-developing-selfdev-rag-dev-1  |     self.credentials = self._load_credentials(self.scopes)
+# self-developing-selfdev-rag-dev-1  |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# self-developing-selfdev-rag-dev-1  |   File "/usr/local/lib/python3.11/site-packages/langchain_googledrive/utilities/google_drive.py", line 834, in _load_credentials
+# self-developing-selfdev-rag-dev-1  |     creds = flow.run_local_server(port=0)
+# self-developing-selfdev-rag-dev-1  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# self-developing-selfdev-rag-dev-1  |   File "/usr/local/lib/python3.11/site-packages/google_auth_oauthlib/flow.py", line 447, in run_local_server
+# self-developing-selfdev-rag-dev-1  |     webbrowser.get(browser).open(auth_url, new=1, autoraise=True)
+# self-developing-selfdev-rag-dev-1  |     ^^^^^^^^^^^^^^^^^^^^^^^
+# self-developing-selfdev-rag-dev-1  |   File "/usr/local/lib/python3.11/webbrowser.py", line 66, in get
+# self-developing-selfdev-rag-dev-1  |     raise Error("could not locate runnable browser")
+# self-developing-selfdev-rag-dev-1  | webbrowser.Error: could not locate runnable browser
     loader = GoogleDriveLoader(
         # folder_id = "root",
         # folder_id = "0AJ-wGlqk4qe7Uk9PVA", # Home

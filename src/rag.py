@@ -82,17 +82,18 @@ WEAVIATE_GRPC_PORT = int(os.getenv("WEAVIATE_GRPC_PORT", "50051"))
 WEAVIATE_GRPC_SECURE = str_to_bool(os.getenv("WEAVIATE_GRPC_SECURE", "false"))
 
 # TODO: Should I move loaders to a separate script?
+TEXT_LOADER = str_to_bool(os.getenv("TEXT_LOADER", "false"))
+TEXT_LOADER_FILES = os.getenv("TEXT_LOADER_FILES", "[]")  # JSON array of file paths
+
 DIRECTORY_LOADER = str_to_bool(os.getenv("DIRECTORY_LOADER", "false"))
 DIRECTORY_LOADER_PATH = os.getenv("DIRECTORY_LOADER_PATH", "./input")
 DIRECOTRY_LOADER_GLOB = os.getenv("DIRECTORY_LOADER_GLOB", "**/*.*")
-WEB_BASE_LOADER = str_to_bool(os.getenv("WEB_BASE_LOADER", "false"))
-GOOGLE_DRIVE_LOADER = str_to_bool(os.getenv("GOOGLE_DRIVE_LOADER", "false"))
 
+WEB_BASE_LOADER = str_to_bool(os.getenv("WEB_BASE_LOADER", "false"))
+
+GOOGLE_DRIVE_LOADER = str_to_bool(os.getenv("GOOGLE_DRIVE_LOADER", "false"))
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 GOOGLE_TOKEN = os.getenv("GOOGLE_TOKEN", "./google_token.json")
-
-TEXT_LOADER = str_to_bool(os.getenv("TEXT_LOADER", "false"))
-TEXT_LOADER_FILES = os.getenv("TEXT_LOADER_FILES", "[]")  # JSON array of file paths
 
 
 # Load LLM and embeddings
@@ -174,7 +175,8 @@ if DIRECTORY_LOADER:
 
 if WEB_BASE_LOADER:
     loader = WebBaseLoader(
-        web_paths=("https://lilianweng.github.io/posts/2023-06-23-agent/",),
+        # web_paths=("https://lilianweng.github.io/posts/2023-06-23-agent/",),
+        web_paths=("https://web.az1.ai",),
         bs_kwargs=dict(
             parse_only=SoupStrainer(
                 class_=("post-content", "post-title", "post-header")

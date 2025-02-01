@@ -30,8 +30,10 @@ from langgraph.graph import START, StateGraph
 from typing_extensions import List, TypedDict
 import chromadb
 import httpx
+import json
 from httpx import HTTPError
 from langchain_community.document_loaders import DirectoryLoader
+from langchain_community.document_loaders import TextLoader
 from langchain_community.document_loaders import WebBaseLoader
 from bs4 import SoupStrainer
 # from langchain_google_community import GoogleDriveLoader # Use the basic version
@@ -74,6 +76,9 @@ GOOGLE_DRIVE_LOADER = str_to_bool(os.getenv("GOOGLE_DRIVE_LOADER", "false"))
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 GOOGLE_TOKEN = os.getenv("GOOGLE_TOKEN", "./google_token.json")
 
+TEXT_LOADER = str_to_bool(os.getenv("TEXT_LOADER", "false"))
+TEXT_LOADER_FILES = os.getenv("TEXT_LOADER_FILES", "[]")  # JSON array of file paths
+
 
 # Load LLM and embeddings
 llm = None
@@ -113,12 +118,18 @@ print('Vector store:', VECTOR_STORE)
 # Document Loaders
 docs = []
 
-# AI! Add TEXT_LOADER env var. Also, load texts from files specified through env variable that contains a JSON with array of file paths.
 if TEXT_LOADER:
-    loader = TextLoader("state_of_the_union.txt")
-    docs_loaded = loader.load()
-    print("TextLoader> documents loaded:", len(docs_loaded))
-    docs += docs_loaded
+    try:
+        file_paths = json.loads(TEXT_LOADER_FILES)
+        for file_path in file_paths:
+            loader = TextLoader(file_path)
+            docs_loaded = loader.load()
+            print(f"TextLoader> documents loaded from {file_path}:", len(docs_loaded))
+            docs += docs_loaded
+    except json.JSONDecodeError as e:
+        print(f"Error parsing TEXT_LOADER_FILES JSON: {e}")
+    except Exception as e:
+        print(f"Error loading text files: {e}")
 
 if DIRECTORY_LOADER:
     loader = DirectoryLoader(

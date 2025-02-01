@@ -101,27 +101,13 @@ if VECTOR_STORE == "memory":
 elif VECTOR_STORE == "chroma":
     # wait_for_chroma()
     try:
-      # AI! Fix the connection error:
-      # self-developing-selfdev-rag-dev-1  | ConnectionError: Could not connect to Chroma server after maximum retries
-      # self-developing-selfdev-rag-dev-1  | LLM Provider: openai
-      # self-developing-selfdev-rag-dev-1  | Error creating Chroma client: 1 validation error for Settings
-      # self-developing-selfdev-rag-dev-1  | chroma_client_auth_enabled
-      # self-developing-selfdev-rag-dev-1  |   extra fields not permitted (type=value_error.extra)
-      # self-developing-selfdev-rag-dev-1  | Traceback (most recent call last):
-      # self-developing-selfdev-rag-dev-1  |   File "/opt/app/src/rag.py", line 107, in <module>
-      # self-developing-selfdev-rag-dev-1  |     settings=Settings(chroma_client_auth_enabled=False,
-      # self-developing-selfdev-rag-dev-1  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-      # self-developing-selfdev-rag-dev-1  |   File "/usr/local/lib/python3.11/site-packages/pydantic/v1/env_settings.py", line 40, in __init__
-      # self-developing-selfdev-rag-dev-1  |     super().__init__(
-      # self-developing-selfdev-rag-dev-1  |   File "/usr/local/lib/python3.11/site-packages/pydantic/v1/main.py", line 341, in __init__
-      # self-developing-selfdev-rag-dev-1  |     raise validation_error
-      # self-developing-selfdev-rag-dev-1  | pydantic.v1.error_wrappers.ValidationError: 1 validation error for Settings
-      # self-developing-selfdev-rag-dev-1  | chroma_client_auth_enabled)
+        wait_for_chroma()
         chroma_client = chromadb.HttpClient(
             host=CHROMA_HOST,
             port=CHROMA_PORT,
-            settings=Settings(chroma_client_auth_enabled=False,
-                              anonymized_telemetry=False))
+            settings=Settings(
+                anonymized_telemetry=False
+            ))
     except Exception as e:
         print(f"Error creating Chroma client: {e}")
         raise

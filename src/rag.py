@@ -125,6 +125,42 @@ elif VECTOR_STORE == "chroma":
         print(f"Error creating Chroma client: {e}")
         raise
 elif VECTOR_STORE == "weaviate":
+# AI! Fix these error:
+# self-developing-selfdev-rag-dev-1  | Traceback (most recent call last):
+# self-developing-selfdev-rag-dev-1  |   File "/opt/app/src/rag.py", line 148, in <module>
+# self-developing-selfdev-rag-dev-1  |     vector_store = Weaviate(
+# self-developing-selfdev-rag-dev-1  |                    ^^^^^^^^^
+# self-developing-selfdev-rag-dev-1  |   File "/usr/local/lib/python3.11/site-packages/langchain_community/vectorstores/weaviate.py", line 105, in __init__
+# self-developing-selfdev-rag-dev-1  |     raise ValueError(
+# self-developing-selfdev-rag-dev-1  | ValueError: client should be an instance of weaviate.Client, got <class 'weaviate.client.WeaviateClient'>
+# self-developing-selfdev-rag-dev-1  | /usr/local/lib/python3.11/site-packages/weaviate/warnings.py:314: ResourceWarning: Con004: The connection to Weaviate was not closed properly. This can lead to memory leaks.
+# self-developing-selfdev-rag-dev-1  |             Please make sure to close the connection using `client.close()`.
+# self-developing-selfdev-rag-dev-1  | /usr/local/lib/python3.11/asyncio/selector_events.py:868: ResourceWarning: unclosed transport <_SelectorSocketTransport fd=6 read=idle write=<idle, bufsize=0>>
+# self-developing-selfdev-rag-dev-1  | USER_AGENT environment variable not set, consider setting it to identify your requests.
+# self-developing-selfdev-rag-dev-1  | LLM Provider: openai
+# self-developing-selfdev-rag-dev-1  | /opt/app/src/rag.py:129: DeprecationWarning:
+# self-developing-selfdev-rag-dev-1  | Python client v3 `weaviate.Client(...)` has been removed.
+# self-developing-selfdev-rag-dev-1  |
+# self-developing-selfdev-rag-dev-1  |
+# self-developing-selfdev-rag-dev-1  | Upgrade your code to use Python client v4 `weaviate.WeaviateClient` connections and methods.
+# self-developing-selfdev-rag-dev-1  |     - For Python Client v4 usage, see: https://weaviate.io/developers/weaviate/client-libraries/python
+# self-developing-selfdev-rag-dev-1  |     - For code migration, see: https://weaviate.io/developers/weaviate/client-libraries/python/v3_v4_migration
+# self-developing-selfdev-rag-dev-1  |
+# self-developing-selfdev-rag-dev-1  |
+# self-developing-selfdev-rag-dev-1  | If you have to use v3 code, install the v3 client and pin the v3 dependency in your requirements file: `weaviate-client>=3.26.7;<4.0.0`
+# self-developing-selfdev-rag-dev-1  |   client = weaviate.Client(
+# self-developing-selfdev-rag-dev-1  | Traceback (most recent call last):
+# self-developing-selfdev-rag-dev-1  |   File "/opt/app/src/rag.py", line 129, in <module>
+# self-developing-selfdev-rag-dev-1  |     client = weaviate.Client(
+# self-developing-selfdev-rag-dev-1  |              ^^^^^^^^^^^^^^^^
+# self-developing-selfdev-rag-dev-1  | TypeError: Client.__init__() got an unexpected keyword argument 'url'
+# self-developing-selfdev-rag-dev-1  | USER_AGENT environment variable not set, consider setting it to identify your requests.
+# self-developing-selfdev-rag-dev-1  | Traceback (most recent call last):
+# self-developing-selfdev-rag-dev-1  |   File "/opt/app/src/rag.py", line 128, in <module>
+# self-developing-selfdev-rag-dev-1  | LLM Provider: openai
+# self-developing-selfdev-rag-dev-1  |     client = weaviate.connect.Client(
+# self-developing-selfdev-rag-dev-1  |              ^^^^^^^^^^^^^^^^^^^^^^^
+# self-developing-selfdev-rag-dev-1  | AttributeError: module 'weaviate.connect' has no attribute 'Client'
     client = weaviate.connect.Client(
         connection_params=weaviate.connect.ConnectionParams.from_url(
             f"http://{WEAVIATE_HTTP_HOST}:{WEAVIATE_HTTP_PORT}"

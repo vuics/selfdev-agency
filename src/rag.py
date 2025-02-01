@@ -30,7 +30,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langgraph.graph import START, StateGraph
 from typing_extensions import List, TypedDict
 import chromadb
-import weaviate
 import httpx
 import json
 from httpx import HTTPError
@@ -41,6 +40,9 @@ from bs4 import SoupStrainer
 # from langchain_google_community import GoogleDriveLoader # Use the basic version
 from langchain_googledrive.document_loaders import GoogleDriveLoader  # Use the advanced version.
 from langchain_community.document_loaders import UnstructuredFileIOLoader
+import weaviate
+from weaviate.connect import ConnectionParams
+from weaviate import WeaviateAsyncClient
 
 
 from base_agent import BaseAgent, ChatRequest
@@ -117,11 +119,30 @@ elif VECTOR_STORE == "chroma":
         print(f"Error creating Chroma client: {e}")
         raise
 elif VECTOR_STORE == "weaviate":
-    client = weaviate.WeaviateClient(
-        connection_params=weaviate.connect.ConnectionParams.from_url(
-            url=WEAVIATE_URL,
-        )
+    # client = weaviate.connect_to_custom(
+    #     http_host="localhost",
+    #     http_port=8080,
+    #     http_secure=False,
+    #     grpc_host="localhost",
+    #     grpc_port=50051,
+    #     grpc_secure=False,
+    #     headers={
+    #         "X-OpenAI-Api-Key": os.getenv("OPENAI_APIKEY")  # Or any other inference API keys
+    #     }
+    # )
+    client = weaviate.WeaviateAsyncClient(
+        connection_params=ConnectionParams.from_params(
+            # AI! Add evn vars for the following params:
+            http_host="localhost",
+            http_port=8099,
+            http_secure=False,
+            grpc_host="localhost",
+            grpc_port=50052,
+            grpc_secure=False,
+        ),
+        # Additional settings not shown
     )
+    await client.connect()
     vector_store = Weaviate(
         client=client,
         index_name=WEAVIATE_INDEX,

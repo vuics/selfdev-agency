@@ -14,6 +14,7 @@ The assistant is based on the document:
 (https://python.langchain.com/docs/tutorials/rag/)
 '''
 import os
+import time
 
 from dotenv import load_dotenv
 from fastapi.responses import JSONResponse
@@ -22,11 +23,16 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_community.document_loaders import DirectoryLoader
 from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_chroma import Chroma
 from langchain import hub
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langgraph.graph import START, StateGraph
 from typing_extensions import List, TypedDict
+import chromadb
+from chromadb.config import Settings
+import httpx
+from httpx import HTTPError
 
 from base_agent import BaseAgent, ChatRequest
 
@@ -45,7 +51,10 @@ EMBEDDINGS_MODEL = os.getenv("EMBEDDINGS_MODEL", "text-embedding-3-large")
 # ollama:
 # EMBEDDINGS_MODEL = os.getenv("EMBEDDINGS_MODEL", "mxbai-embed-large:latest")
 
-VECTOR_STORE = os.getenv("VECTOR_STORE", "in-memory")
+VECTOR_STORE = os.getenv("VECTOR_STORE", "memory")  # memory, chroma
+CHROMA_HOST = os.getenv("CHROMA_HOST", "localhost")
+CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8121"))
+# CHROMA_DIRECTORY = os.getenv("CHROMA_DIRECTORY", "./chroma_db")
 
 DIRECTORY_LOADER_PATH = os.getenv("DIRECTORY_LOADER_PATH", "./input")
 DIRECOTRY_LOADER_GLOB = os.getenv("DIRECTORY_LOADER_GLOB", "**/*.*")
@@ -54,9 +63,24 @@ GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 GOOGLE_TOKEN = os.getenv("GOOGLE_TOKEN", "./google_token.json")
 
 
-# Load LLM and embeddings
-#
+def wait_for_chroma(host=CHROMA_HOST, port=CHROMA_PORT, max_retries=5, retry_delay=2):
+    """Wait for Chroma server to be ready"""
+    url = f"http://{host}:{port}/api/v1/heartbeat"
+    for i in range(max_retries):
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.get(url)
+                if response.status_code == 200:
+                    print("Successfully connected to Chroma server")
+                    return True
+        except HTTPError as e:
+            print('http error:', e)
+            print(f"Attempt {i+1}/{max_retries}: Chroma server not ready yet. Retrying in {retry_delay} seconds...")
+            time.sleep(retry_delay)
+    raise ConnectionError("Could not connect to Chroma server after maximum retries")
 
+
+# Load LLM and embeddings
 llm = None
 embeddings = None
 if LLM_PROVIDER == "openai":
@@ -67,14 +91,50 @@ elif LLM_PROVIDER == "ollama":
     embeddings = OllamaEmbeddings(model=MODEL_NAME, base_url=OLLAMA_BASE_URL)
 else:
     raise Exception(f"Unknown LLM provider: {LLM_PROVIDER}")
+print('LLM Provider:', LLM_PROVIDER)
+
 
 # Load vector store
-#
 vector_store = None
-if VECTOR_STORE == "in-memory":
+if VECTOR_STORE == "memory":
     vector_store = InMemoryVectorStore(embeddings)
+elif VECTOR_STORE == "chroma":
+    # wait_for_chroma()
+    try:
+      # AI! Fix the connection error:
+      # self-developing-selfdev-rag-dev-1  | ConnectionError: Could not connect to Chroma server after maximum retries
+      # self-developing-selfdev-rag-dev-1  | LLM Provider: openai
+      # self-developing-selfdev-rag-dev-1  | Error creating Chroma client: 1 validation error for Settings
+      # self-developing-selfdev-rag-dev-1  | chroma_client_auth_enabled
+      # self-developing-selfdev-rag-dev-1  |   extra fields not permitted (type=value_error.extra)
+      # self-developing-selfdev-rag-dev-1  | Traceback (most recent call last):
+      # self-developing-selfdev-rag-dev-1  |   File "/opt/app/src/rag.py", line 107, in <module>
+      # self-developing-selfdev-rag-dev-1  |     settings=Settings(chroma_client_auth_enabled=False,
+      # self-developing-selfdev-rag-dev-1  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      # self-developing-selfdev-rag-dev-1  |   File "/usr/local/lib/python3.11/site-packages/pydantic/v1/env_settings.py", line 40, in __init__
+      # self-developing-selfdev-rag-dev-1  |     super().__init__(
+      # self-developing-selfdev-rag-dev-1  |   File "/usr/local/lib/python3.11/site-packages/pydantic/v1/main.py", line 341, in __init__
+      # self-developing-selfdev-rag-dev-1  |     raise validation_error
+      # self-developing-selfdev-rag-dev-1  | pydantic.v1.error_wrappers.ValidationError: 1 validation error for Settings
+      # self-developing-selfdev-rag-dev-1  | chroma_client_auth_enabled)
+        chroma_client = chromadb.HttpClient(
+            host=CHROMA_HOST,
+            port=CHROMA_PORT,
+            settings=Settings(chroma_client_auth_enabled=False,
+                              anonymized_telemetry=False))
+    except Exception as e:
+        print(f"Error creating Chroma client: {e}")
+        raise
+#    try:
+#        collection = chroma_client.get_or_create_collection(name=f"{AGENT_NAME}_collection")
+#    except Exception as e:
+#        print(f"Error creating/getting collection: {e}")
+#        return None
+    vector_store = Chroma(client=chroma_client, collection_name=f"{AGENT_NAME}_collection", embedding_function=embeddings)
+#     vector_store = Chroma(collection_name=f"{AGENT_NAME}_collection", embedding_function=embeddings, persist_directory=CHROMA_DIRECTORY)
 else:
     raise Exception(f"Unknown vector store: {VECTOR_STORE}")
+print('Vector store:', VECTOR_STORE)
 
 
 # Document Loaders
@@ -93,7 +153,7 @@ loader = WebBaseLoader(
     ),
 )
 docs = loader.load()
-print("documents loaded:", len(docs))
+print("WebBaseLoader> documents loaded:", len(docs))
 """
 
 # DirectoryLoader
@@ -109,7 +169,7 @@ loader = DirectoryLoader(
   use_multithreading=True
 )
 docs = loader.load()
-print("documents loaded:", len(docs))
+print("DirectoryLoader> documents loaded:", len(docs))
 
 # GoogleDriveLoader
 """
@@ -174,7 +234,7 @@ loader = GoogleDriveLoader(
 )
 
 docs = loader.load()
-print("documents loaded:", len(docs))
+print("GoogleDriveLoader> documents loaded:", len(docs))
 """
 
 
@@ -215,6 +275,7 @@ def generate(state: State):
 graph_builder = StateGraph(State).add_sequence([retrieve, generate])
 graph_builder.add_edge(START, "retrieve")
 graph = graph_builder.compile()
+print('Graph compiled')
 
 
 # Agent
@@ -245,6 +306,7 @@ class RagAgent(BaseAgent):
             )
 
 
+print('Initializing agent')
 # Create a single instance of the agent
 agent = RagAgent(agent_name=AGENT_NAME)
 

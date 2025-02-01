@@ -23,6 +23,7 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_chroma import Chroma
+from langchain_community.vectorstores import Weaviate
 from langchain import hub
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -59,12 +60,16 @@ EMBEDDINGS_MODEL = os.getenv("EMBEDDINGS_MODEL", "text-embedding-3-large")
 # ollama:
 # EMBEDDINGS_MODEL = os.getenv("EMBEDDINGS_MODEL", "mxbai-embed-large:latest")
 
-VECTOR_STORE = os.getenv("VECTOR_STORE", "memory")  # memory, chroma
+VECTOR_STORE = os.getenv("VECTOR_STORE", "memory")  # memory, chroma, weaviate
 
 CHROMA_TYPE = os.getenv("CHROMA_TYPE", "host")  # host, directory
 CHROMA_HOST = os.getenv("CHROMA_HOST", "localhost")  # host only
 CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))  # host only
 CHROMA_DIRECTORY = os.getenv("CHROMA_DIRECTORY", "./chroma_db")  # directory only
+
+# Weaviate settings
+WEAVIATE_URL = os.getenv("WEAVIATE_URL", "http://localhost:8080")
+WEAVIATE_INDEX = os.getenv("WEAVIATE_INDEX", f"{AGENT_NAME}_index")
 
 # TODO: Should I move loaders to a separate script?
 DIRECTORY_LOADER = str_to_bool(os.getenv("DIRECTORY_LOADER", "false"))
@@ -111,6 +116,18 @@ elif VECTOR_STORE == "chroma":
         print(f"Error creating Chroma client: {e}")
         raise
 # AI! Add the Weaviate vector store in LangChain. Add all the necessary env vars. The weaviate client should be able to connect in a weaviate running in another docker container. The authentication should be disabled for weaviate. 
+elif VECTOR_STORE == "weaviate":
+    import weaviate
+    client = weaviate.Client(
+        url=WEAVIATE_URL,
+    )
+    vector_store = Weaviate(
+        client=client,
+        index_name=WEAVIATE_INDEX,
+        text_key="text",
+        embedding=embeddings,
+        by_text=False
+    )
 else:
     raise Exception(f"Unknown vector store: {VECTOR_STORE}")
 print('Vector store:', VECTOR_STORE)

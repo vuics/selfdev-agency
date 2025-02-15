@@ -40,10 +40,10 @@ env_requirements = {
 
 }
 if MODEL_PROVIDER not in env_requirements:
-    print(f"Unknown LLM provider: {MODEL_PROVIDER}")
+  print(f"Unknown LLM provider: {MODEL_PROVIDER}")
 for env_var in env_requirements[MODEL_PROVIDER]:
-    if not os.environ.get(env_var):
-        raise ValueError(f"{env_var} is not set")
+  if not os.environ.get(env_var):
+    raise ValueError(f"{env_var} is not set")
 
 
 model = init_chat_model(MODEL_NAME, model_provider=MODEL_PROVIDER)
@@ -57,39 +57,39 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 # model = None
 # if LLM_PROVIDER == "openai":
-#     model = ChatOpenAI(model=MODEL_NAME, api_key=OPENAI_API_KEY)
+#   model = ChatOpenAI(model=MODEL_NAME, api_key=OPENAI_API_KEY)
 # elif LLM_PROVIDER == "anthropic":
-#     model = ChatAnthropic(model=MODEL_NAME, api_key=ANTHROPIC_API_KEY)
+#   model = ChatAnthropic(model=MODEL_NAME, api_key=ANTHROPIC_API_KEY)
 # elif LLM_PROVIDER == "ollama":
-#     model = ChatOllama(model=MODEL_NAME, base_url=OLLAMA_BASE_URL)
+#   model = ChatOllama(model=MODEL_NAME, base_url=OLLAMA_BASE_URL)
 # else:
-#     raise ValueError(f"Unknown LLM provider: {LLM_PROVIDER}")
+#   raise ValueError(f"Unknown LLM provider: {LLM_PROVIDER}")
 
 
 class SmithAgent(BaseAgent):
-    async def chat(self, request: ChatRequest):
-        try:
-            prompt = request.prompt
-            print('prompt:', prompt)
-            ai_msg = model.invoke(prompt)
-            print("ai_msg:", ai_msg.content)
-            return JSONResponse(
-                content={
-                    "result": "ok",
-                    "agent": AGENT_NAME,
-                    "content": ai_msg.content,
-                },
-                status_code=200
-            )
-        except Exception as err:
-            print('Chat error:', err)
-            return JSONResponse(
-                content={
-                    "result": "error",
-                    'error': str(err),
-                },
-                status_code=500
-            )
+  async def chat(self, request: ChatRequest):
+    try:
+      prompt = request.prompt
+      print('prompt:', prompt)
+      ai_msg = model.invoke(prompt)
+      print("ai_msg:", ai_msg.content)
+      return JSONResponse(
+        content={
+          "result": "ok",
+          "agent": AGENT_NAME,
+          "content": ai_msg.content,
+        },
+        status_code=200
+      )
+    except Exception as err:
+      print('Chat error:', err)
+      return JSONResponse(
+        content={
+          "result": "error",
+          'error': str(err),
+        },
+        status_code=500
+      )
 
 
 # Create a single instance of the agent

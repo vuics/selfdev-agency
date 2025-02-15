@@ -38,17 +38,12 @@ env_requirements = {
     "groq": ["GROQ_API_KEY"],
     "openai": ["OPENAI_API_KEY", "GROQ_API_KEY_1"]
 }
-# AI! For the env_requirements dict object above, create an algorithm that check all the required environment variables with keys to replace the code block below. Replace it with the loop that select dict key as env_requirements[MODEL_PROVIDER] and then iterates through the environment variables to check if they are set and if not raises ValueError as in the code block below: 
-if MODEL_PROVIDER == 'groq':
-    if not os.environ.get("GROQ_API_KEY"):
-        raise ValueError("GROQ_API_KEY is not set")
-if MODEL_PROVIDER == 'openai':
-    if not os.environ.get("OPENAI_API_KEY"):
-        raise ValueError("OPENAI_API_KEY is not set")
-    if not os.environ.get("OPENAI_API_KEY_1"):
-        raise ValueError("OPENAI_API_KEY_1 is not set")
-else:
-    print(f"Unknown LLM provider: {MODEL_PROVIDER}")
+if MODEL_PROVIDER not in env_requirements:
+    raise ValueError(f"Unknown LLM provider: {MODEL_PROVIDER}")
+
+for env_var in env_requirements[MODEL_PROVIDER]:
+    if not os.environ.get(env_var):
+        raise ValueError(f"{env_var} is not set")
 
 
 model = init_chat_model(MODEL_NAME, model_provider=MODEL_PROVIDER)

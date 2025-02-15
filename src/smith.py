@@ -36,11 +36,11 @@ model = None
 
 env_requirements = {
     "groq": ["GROQ_API_KEY"],
-    "openai": ["OPENAI_API_KEY", "GROQ_API_KEY_1"]
+    "openai": ["OPENAI_API_KEY"],
+
 }
 if MODEL_PROVIDER not in env_requirements:
-    raise ValueError(f"Unknown LLM provider: {MODEL_PROVIDER}")
-
+    print(f"Unknown LLM provider: {MODEL_PROVIDER}")
 for env_var in env_requirements[MODEL_PROVIDER]:
     if not os.environ.get(env_var):
         raise ValueError(f"{env_var} is not set")

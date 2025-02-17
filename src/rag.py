@@ -37,16 +37,13 @@ from langchain_community.document_loaders import DirectoryLoader
 from langchain_community.document_loaders import TextLoader
 from langchain_community.document_loaders import WebBaseLoader
 from bs4 import SoupStrainer
-# from langchain_google_community import GoogleDriveLoader # Use the basic version
 from langchain_googledrive.document_loaders import GoogleDriveLoader  # Use the advanced version.
 from langchain_community.document_loaders import UnstructuredFileIOLoader
 import weaviate
 from langchain_weaviate.vectorstores import WeaviateVectorStore
-# from weaviate.connect import ConnectionParams
-# from weaviate import WeaviateAsyncClient
-
 
 from base_agent import BaseAgent, ChatRequest
+from base_model import init_model, init_embeddings
 from helpers import str_to_bool
 
 
@@ -58,12 +55,11 @@ AGENT_NAME = os.getenv("AGENT_NAME", "rag")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
+MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "openai")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
-# openai:
-EMBEDDINGS_MODEL = os.getenv("EMBEDDINGS_MODEL", "text-embedding-3-large")
-# ollama:
-# EMBEDDINGS_MODEL = os.getenv("EMBEDDINGS_MODEL", "mxbai-embed-large:latest")
+# openai: text-embedding-3-large
+# ollama: nomic-embed-text
+EMBEDDINGS_NAME = os.getenv("EMBEDDINGS_NAME", "text-embedding-3-large")
 
 VECTOR_STORE = os.getenv("VECTOR_STORE", "memory")  # memory, chroma, weaviate
 
@@ -109,17 +105,17 @@ GOOGLE_TOKEN = os.getenv("GOOGLE_TOKEN", "./google_token.json")
 
 
 # Load LLM and embeddings
-llm = None
-embeddings = None
-if LLM_PROVIDER == "openai":
-    llm = ChatOpenAI(model=MODEL_NAME, api_key=OPENAI_API_KEY)
-    embeddings = OpenAIEmbeddings(model=EMBEDDINGS_MODEL)
-elif LLM_PROVIDER == "ollama":
-    llm = ChatOllama(model=MODEL_NAME, base_url=OLLAMA_BASE_URL)
-    embeddings = OllamaEmbeddings(model=MODEL_NAME, base_url=OLLAMA_BASE_URL)
-else:
-    raise Exception(f"Unknown LLM provider: {LLM_PROVIDER}")
-print('LLM Provider:', LLM_PROVIDER)
+try:
+  model = init_model(model_provider=MODEL_PROVIDER,
+                     model_name=MODEL_NAME)
+except Exception as e:
+  print("Error initializing model:", e)
+
+try:
+  embeddings = init_embeddings(model_provider=MODEL_PROVIDER,
+                               embeddings_name=EMBEDDINGS_NAME)
+except Exception as e:
+  print("Error initializing embeddings model:", e)
 
 
 # Load vector store
@@ -247,7 +243,7 @@ def retrieve(state: State):
 def generate(state: State):
     docs_content = "\n\n".join(doc.page_content for doc in state["context"])
     messages = prompt.invoke({"question": state["question"], "context": docs_content})
-    response = llm.invoke(messages)
+    response = model.invoke(messages)
     return {"answer": response.content}
 
 

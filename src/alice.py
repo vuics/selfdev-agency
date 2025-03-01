@@ -10,10 +10,7 @@ Alice Agent
 import logging
 import os
 import ssl
-from getpass import getpass
-from argparse import ArgumentParser
 from dotenv import load_dotenv
-from fastapi.responses import JSONResponse
 from langchain_core.messages import HumanMessage, SystemMessage
 import asyncio
 import slixmpp
@@ -28,9 +25,7 @@ MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "openai")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 SYSTEM_MESSAGE = os.getenv("SYSTEM_MESSAGE", "")
 
-# XMPP_JID = os.getenv("XMPP_JID", f"{AGENT_NAME}@selfdev-prosody.dev.local")
-# XMPP_JID = os.getenv("XMPP_JID", "alice@selfdev-prosody")
-XMPP_JID = os.getenv("XMPP_JID", "alice@selfdev-prosody.dev.local")
+XMPP_JID = os.getenv("XMPP_JID", f"{AGENT_NAME}@selfdev-prosody.dev.local")
 XMPP_PASSWORD = os.getenv("XMPP_PASSWORD", "123")
 XMPP_ROOM = os.getenv("XMPP_ROOM", "team@conference.selfdev-prosody.dev.local")
 XMPP_NICK = os.getenv("XMPP_NICK", AGENT_NAME)
@@ -141,10 +136,6 @@ class AliceAgent(slixmpp.ClientXMPP):
         """
         # print('msg:', msg)
         if msg['mucnick'] != self.nick and self.nick in msg['body']:
-            self.send_message(mto=msg['from'].bare,
-                              mbody=f"I heard that, {msg['mucnick']}: {msg['body']}",
-                              mtype='groupchat')
-
             try:
               prompt = msg['body']
               print('prompt:', prompt)
@@ -201,7 +192,5 @@ if __name__ == '__main__':
     xmpp.register_plugin('xep_0199')  # XMPP Ping
 
     xmpp.connect()
-    # xmpp.connect(address=('selfdev-prosody.dev.local', 5222))
-    # xmpp.connect(address=('172.28.0.2', 5222))
 
     asyncio.get_event_loop().run_forever()

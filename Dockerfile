@@ -1,13 +1,20 @@
-FROM python:3.11.11-slim
+# FROM python:3.11.11-slim
+FROM python:3.12.9-slim-bookworm
+# FROM python:3.13.2-slim-bookworm
 
 ENV LANG=C.UTF-8 PYTHONIOENCODING=UTF-8 PYTHONUNBUFFERED=1
 ENV PATH="/root/.local/bin:${PATH}"
 
 RUN apt-get update --yes && \
     apt-get upgrade --yes && \
-    apt-get install --yes --no-install-recommends python3-dev gcc \
-            rustc cargo npm wget libmagic1 chromium chromium-driver && \
+    apt-get install --yes --no-install-recommends python3-dev \
+            curl ca-certificates gcc g++ make \
+            npm wget libmagic1 chromium chromium-driver && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install Rust using rustup
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Set environment variables for Chrome/Chromium
 ENV CHROME_BIN=/usr/bin/chromium \
@@ -34,6 +41,5 @@ RUN pip install .
 COPY src/*.py ./src/
 COPY README.md ./
 COPY input/* ./input/
-
 
 # CMD [ "/bin/bash", "-c", "TBS" ]

@@ -22,64 +22,19 @@ from base_model import init_model
 
 load_dotenv()
 
-# AI!  The agent cannot connect. Below is what I see in the logs. The agents should connect to Prosody XMPP running on host selfdev-prosody.dev.local. Fix the error below:
-#
-# self-developing-selfdev-alice-1  | DEBUG    Using selector: EpollSelector
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: RFC 6120: Stream Feature: STARTTLS
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: RFC 6120: Stream Feature: Resource Binding
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: RFC 3920: Stream Feature: Start Session
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: RFC 6121: Stream Feature: Roster Versioning
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: RFC 6121: Stream Feature: Subscription Pre-Approval
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: RFC 6120: Stream Feature: SASL
-# self-developing-selfdev-alice-1  | /opt/app/src/alice.py:66: DeprecationWarning: ssl.PROTOCOL_TLS is deprecated
-# self-developing-selfdev-alice-1  |   self.ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS)
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: XEP-0030: Service Discovery
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: XEP-0131: Stanza Headers and Internet Metadata
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: XEP-0082: XMPP Date and Time Profiles
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: XEP-0004: Data Forms
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: XEP-0060: Publish-Subscribe
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: XEP-0128: Service Discovery Extensions
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: XEP-0115: Entity Capabilities
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: XEP-0163: Personal Eventing Protocol (PEP)
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: XEP-0172: User Nickname
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: XEP-0203: Delayed Delivery
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: XEP-0045: Multi-User Chat
-# self-developing-selfdev-alice-1  | DEBUG    Loaded Plugin: XEP-0199: XMPP Ping
-# self-developing-selfdev-alice-1  | DEBUG    Event triggered: connecting
-# self-developing-selfdev-alice-1  | DEBUG    DNS: Querying SRV records for selfdev-prosody.dev.local
-# self-developing-selfdev-alice-1  | DEBUG    DNS: Exception while querying for selfdev-prosody.dev.local SRV records: (12, 'Timeout while contacting DNS servers')
-# self-developing-selfdev-alice-1  | DEBUG    DNS: Querying selfdev-prosody.dev.local for AAAA records.
-# self-developing-selfdev-alice-1  | DEBUG    DNS: Exception while querying for selfdev-prosody.dev.local AAAA records: (12, 'Timeout while contacting DNS servers')
-# self-developing-selfdev-alice-1  | DEBUG    DNS: Querying selfdev-prosody.dev.local for A records.
-# self-developing-selfdev-alice-1  | DEBUG    Connection failed: [Errno 111] Connect call failed ('127.0.0.1', 5222)
-# self-developing-selfdev-alice-1  | DEBUG    Event triggered: connection_failed
-# self-developing-selfdev-alice-1  | DEBUG    Event triggered: reconnect_delay
-# self-developing-selfdev-alice-1  | DEBUG    Connection failed: [Errno 111] Connect call failed ('127.0.0.1', 5222)
-# self-developing-selfdev-alice-1  | DEBUG    Event triggered: connection_failed
-# self-developing-selfdev-alice-1  | DEBUG    Event triggered: reconnect_delay
 
-# AGENT_NAME = os.getenv("AGENT_NAME", "smithx")
 AGENT_NAME = os.getenv("AGENT_NAME", "alice")
 MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "openai")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 SYSTEM_MESSAGE = os.getenv("SYSTEM_MESSAGE", "")
 
 # XMPP_JID = os.getenv("XMPP_JID", f"{AGENT_NAME}@selfdev-prosody.dev.local")
+# XMPP_JID = os.getenv("XMPP_JID", "alice@selfdev-prosody")
 XMPP_JID = os.getenv("XMPP_JID", "alice@selfdev-prosody.dev.local")
 XMPP_PASSWORD = os.getenv("XMPP_PASSWORD", "123")
 XMPP_ROOM = os.getenv("XMPP_ROOM", "team@conference.selfdev-prosody.dev.local")
 XMPP_NICK = os.getenv("XMPP_NICK", AGENT_NAME)
 
-
-# Force IPv4
-import socket
-# Store original getaddrinfo
-socket._orig_getaddrinfo = socket.getaddrinfo
-# Force IPv4
-socket.getaddrinfo = lambda *args, **kwargs: [
-    addr for addr in socket._orig_getaddrinfo(*args, **kwargs)
-    if addr[0] == socket.AF_INET
-]
 
 try:
   model = init_model(model_provider=MODEL_PROVIDER,
@@ -245,6 +200,8 @@ if __name__ == '__main__':
     xmpp.register_plugin('xep_0045')  # Multi-User Chat
     xmpp.register_plugin('xep_0199')  # XMPP Ping
 
-    # Connect to the XMPP server and start processing XMPP stanzas.
-    xmpp.connect(address=('selfdev-prosody.dev.local', 5222))
+    xmpp.connect()
+    # xmpp.connect(address=('selfdev-prosody.dev.local', 5222))
+    # xmpp.connect(address=('172.28.0.2', 5222))
+
     asyncio.get_event_loop().run_forever()

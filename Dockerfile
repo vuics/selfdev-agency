@@ -1,6 +1,4 @@
-# FROM python:3.11.11-slim
 FROM python:3.12.9-slim-bookworm
-# FROM python:3.13.2-slim-bookworm
 
 ENV LANG=C.UTF-8 PYTHONIOENCODING=UTF-8 PYTHONUNBUFFERED=1
 ENV PATH="/root/.local/bin:${PATH}"
@@ -41,5 +39,7 @@ RUN pip install .
 COPY src/*.py ./src/
 COPY README.md ./
 COPY input/* ./input/
+
+# RUN pip install aiodns==3.2.0
 
 # CMD [ "/bin/bash", "-c", "TBS" ]

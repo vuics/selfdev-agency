@@ -64,19 +64,22 @@ MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "openai")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 SYSTEM_MESSAGE = os.getenv("SYSTEM_MESSAGE", "")
 
-# XMPP_JID = os.getenv("XMPP_JID ", f"{AGENT_NAME}@selfdev-prosody.dev.local")
-XMPP_JID = os.getenv("XMPP_JID ", "alice@selfdev-prosody.dev.local")
-XMPP_PASSWORD = os.getenv("XMPP_PASSWORD ", "123")
-XMPP_ROOM = os.getenv("XMPP_ROOM ", "team@conference.selfdev-prosody.dev.local")
-XMPP_NICK = os.getenv("XMPP_NICK ", AGENT_NAME)
+# XMPP_JID = os.getenv("XMPP_JID", f"{AGENT_NAME}@selfdev-prosody.dev.local")
+XMPP_JID = os.getenv("XMPP_JID", "alice@selfdev-prosody.dev.local")
+XMPP_PASSWORD = os.getenv("XMPP_PASSWORD", "123")
+XMPP_ROOM = os.getenv("XMPP_ROOM", "team@conference.selfdev-prosody.dev.local")
+XMPP_NICK = os.getenv("XMPP_NICK", AGENT_NAME)
 
 
 # Force IPv4
-# import socket
-# socket.getaddrinfo = lambda *args, **kwargs: [
-#     addr for addr in socket._orig_getaddrinfo(*args, **kwargs)
-#     if addr[0] == socket.AF_INET
-# ]
+import socket
+# Store original getaddrinfo
+socket._orig_getaddrinfo = socket.getaddrinfo
+# Force IPv4
+socket.getaddrinfo = lambda *args, **kwargs: [
+    addr for addr in socket._orig_getaddrinfo(*args, **kwargs)
+    if addr[0] == socket.AF_INET
+]
 
 try:
   model = init_model(model_provider=MODEL_PROVIDER,
@@ -99,7 +102,7 @@ class AliceAgent(slixmpp.ClientXMPP):
         # Allow insecure certificates
         #
         # Configure SSL context
-        self.ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS)
+        self.ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         self.ssl_context.check_hostname = False
         self.ssl_context.verify_mode = ssl.CERT_NONE
         # Enable all available protocols
@@ -243,5 +246,5 @@ if __name__ == '__main__':
     xmpp.register_plugin('xep_0199')  # XMPP Ping
 
     # Connect to the XMPP server and start processing XMPP stanzas.
-    xmpp.connect()
+    xmpp.connect(address=('selfdev-prosody.dev.local', 5222))
     asyncio.get_event_loop().run_forever()

@@ -9,8 +9,7 @@ import ssl
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage
 import asyncio
-import slixmpp
-import uuid
+from slixmpp import ClientXMPP
 import httpx
 
 from base_model import init_model
@@ -25,7 +24,6 @@ SYSTEM_MESSAGE = os.getenv("SYSTEM_MESSAGE", "")
 
 XMPP_HOST = os.getenv("XMPP_HOST", "selfdev-prosody.dev.local")
 XMPP_USER = os.getenv("XMPP_USER", AGENT_NAME)
-XMPP_JID = os.getenv("XMPP_JID", f"{AGENT_NAME}@{XMPP_HOST}")
 XMPP_PASSWORD = os.getenv("XMPP_PASSWORD", "123")
 XMPP_ROOM = os.getenv("XMPP_ROOM", f"team@conference.{XMPP_HOST}")
 XMPP_NICK = os.getenv("XMPP_NICK", AGENT_NAME)
@@ -38,7 +36,7 @@ except Exception as e:
   print("Error initializing model:", e)
 
 
-class AliceAgent(slixmpp.ClientXMPP):
+class Agent(ClientXMPP):
 
   """
   A simple Slixmpp bot that will greets those
@@ -46,8 +44,15 @@ class AliceAgent(slixmpp.ClientXMPP):
   that mentions the bot's nickname.
   """
 
-  def __init__(self, jid, password, room, nick):
-    slixmpp.ClientXMPP.__init__(self, jid, password)
+  def __init__(self, *, host, user, password, room, nick):
+    jid = f"{user}@{host}"
+    ClientXMPP.__init__(self, jid, password)
+    self.host = host
+    self.user = user
+    self.jid = jid
+    self.password = password
+    self.room = room
+    self.nick = nick
 
     # Allow insecure certificates
     #
@@ -62,9 +67,6 @@ class AliceAgent(slixmpp.ClientXMPP):
     self.add_event_handler('ssl_invalid_cert', self.ssl_invalid_cert)
 
     self.add_event_handler('failed_auth', self.failed_auth)
-
-    self.room = room
-    self.nick = nick
 
     # The session_start event will be triggered when
     # the bot establishes its connection with the server
@@ -100,11 +102,9 @@ class AliceAgent(slixmpp.ClientXMPP):
 
     self.connect()
 
-
   def ssl_invalid_cert(self, pem_cert):
     print("Warning: Invalid SSL certificate received")
     return True
-
 
   async def failed_auth(self, event):
     print(f'{self.jid} Failed auth:', event)
@@ -120,18 +120,17 @@ class AliceAgent(slixmpp.ClientXMPP):
         print('User registered. Reconnect')
         self.connect()
 
-
   async def register_user(self):
-    print('Register a new XMPP user with credentials> user:', XMPP_USER,
-          ', password:', XMPP_PASSWORD)
+    print('Register a new XMPP user with credentials> user:', self.user,
+          ', password:', self.password)
     try:
       async with httpx.AsyncClient() as client:
         response = await client.get(
-          f"http://{XMPP_HOST}:8387/register",
+          f"http://{self.host}:8387/register",
           params={
-            "user": XMPP_USER,
-            "password": XMPP_PASSWORD,
-            "host": XMPP_HOST,
+            "user": self.user,
+            "password": self.password,
+            "host": self.host,
           },
           headers={"Content-Type": "application/json"}
         )
@@ -141,7 +140,6 @@ class AliceAgent(slixmpp.ClientXMPP):
     except Exception as err:
       print('XMPP registration error:', err)
       return False
-
 
   async def start(self, event):
     """
@@ -261,13 +259,16 @@ class AliceAgent(slixmpp.ClientXMPP):
 
 
 if __name__ == '__main__':
-
   logging.basicConfig(
-    level=logging.DEBUG,
-    # level=logging.ERROR,
-    # level=logging.INFO,
+    level=logging.DEBUG,  # level=logging.ERROR, level=logging.INFO,
     format='%(levelname)-8s %(message)s'
   )
 
-  agent = AliceAgent(XMPP_JID, XMPP_PASSWORD, XMPP_ROOM, XMPP_NICK)
+  agent = Agent(
+    host=XMPP_HOST,
+    user=XMPP_USER,
+    password=XMPP_PASSWORD,
+    room=XMPP_ROOM,
+    nick=XMPP_NICK
+  )
   asyncio.get_event_loop().run_forever()

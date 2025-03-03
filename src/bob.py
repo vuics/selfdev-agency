@@ -30,6 +30,7 @@ import chromadb
 import json
 from langchain_community.document_loaders import DirectoryLoader
 from langchain_community.document_loaders import TextLoader
+from langchain_community.document_loaders import WebBaseLoader
 from langchain_googledrive.document_loaders import GoogleDriveLoader
 from langchain_community.document_loaders import UnstructuredFileIOLoader
 import weaviate

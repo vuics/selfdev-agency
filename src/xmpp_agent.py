@@ -44,7 +44,7 @@ class XmppAgent(ClientXMPP):
     # and the XML streams are ready for use. We want to
     # listen for this event so that we we can initialize
     # our roster.
-    self.add_event_handler("session_start", self.start)
+    self.add_event_handler("session_start", self.session_start)
 
     # The message event is triggered whenever a message
     # stanza is received. Be aware that that includes
@@ -65,11 +65,15 @@ class XmppAgent(ClientXMPP):
     self.add_event_handler("muc::%s::got_online" % self.room,
                            self.muc_online)
 
+    self.add_event_handler("groupchat_direct_invite",
+                           self.groupchat_direct_invite)
+
     self.register_plugin('xep_0030')  # Service Discovery
     self.register_plugin('xep_0045')  # Multi-User Chat
     self.register_plugin('xep_0199')  # XMPP Ping
     self.register_plugin('xep_0004')  # Data Forms
     self.register_plugin('xep_0060')  # PubSub
+    self.register_plugin('xep_0249')  # Direct MUC Invitations
 
     self.connect()
 
@@ -112,7 +116,7 @@ class XmppAgent(ClientXMPP):
       print('XMPP registration error:', err)
       return False
 
-  async def start(self, event):
+  async def session_start(self, event):
     """
     Process the session_start event.
 
@@ -148,11 +152,27 @@ class XmppAgent(ClientXMPP):
            for stanza objects and the Message stanza to see
            how it may be used.
     """
-    # print('msg:', msg)
-    # print('msg type:', msg['type'])
-    # print('msg body:', msg['body'])
-    # print('msg mucnick:', msg['mucnick'])
-    # print('msg from:', msg['from'])
+    print('msg:', msg)
+    print('msg type:', msg['type'])
+    print('msg body:', msg['body'])
+    print('msg mucnick:', msg['mucnick'])
+    print('msg from:', msg['from'])
+
+    # FIXME: DELETE
+    #
+    # # Extract the conference/room JID
+    # x_elem = msg.xml.find('{jabber:x:conference}x')
+    # print('x_elem:', x_elem)
+    # if x_elem is not None:
+    #   room_jid = x_elem.get('jid')
+    #   reason = x_elem.get('reason', '')
+    #   print(f"Received invitation to join {room_jid}")
+    #   print(f"Reason: {reason}")
+    #   # To accept the invitation, join the room
+    #   # self.plugin['xep_0045'].join_muc(room_jid, self.boundjid.user)
+    #   # Or you could decline it
+    #   # self.plugin['xep_0045'].decline_invite(msg['from'], room_jid)
+
     if msg['type'] in ('chat', 'normal'):
       try:
         content = self.chat(msg['body'])
@@ -222,3 +242,16 @@ class XmppAgent(ClientXMPP):
                         presence['muc']['nick']),
                         mtype='groupchat')
 
+  async def groupchat_direct_invite(self, msg):
+    """
+    Handler for direct MUC invitations.
+    """
+    print('Groupchat Invite msg:', msg)
+    print(f"  Inviter: {msg['from']}")
+    print(f"  Invitee: {msg['to']}")
+    invite = msg.xml.find('.//{jabber:x:conference}x')
+    print(f"  Room: {invite.get('jid')}")
+    print(f"  Reason: {invite.get('reason')}")
+
+    print('Joining the room> room_jid:', invite.get('jid'))
+    self.plugin['xep_0045'].join_muc(invite.get('jid'), self.nick)

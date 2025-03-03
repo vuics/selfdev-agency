@@ -222,18 +222,3 @@ class XmppAgent(ClientXMPP):
                         presence['muc']['nick']),
                         mtype='groupchat')
 
-
-if __name__ == '__main__':
-  logging.basicConfig(
-    level=logging.DEBUG,  # level=logging.ERROR, level=logging.INFO,
-    format='%(levelname)-8s %(message)s'
-  )
-
-  agent = XmppAgent(
-    host=XMPP_HOST,
-    user=XMPP_USER,
-    password=XMPP_PASSWORD,
-    room=XMPP_ROOM,
-    nick=XMPP_NICK
-  )
-  asyncio.get_event_loop().run_forever()

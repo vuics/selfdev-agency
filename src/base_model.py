@@ -18,8 +18,6 @@ from langchain_xai import ChatXAI
 from langchain_openai import OpenAIEmbeddings
 from langchain_ollama import OllamaEmbeddings
 
-load_dotenv()
-
 # providers:
 #  'openai', 'anthropic', 'ollama'
 # models:

@@ -8,12 +8,13 @@ import asyncio
 from slixmpp import ClientXMPP
 import httpx
 
+
 class XmppAgent(ClientXMPP):
   """
-  An XMPP Agent
+  A Base XMPP Agent
   """
 
-  def __init__(self, *, host, user, password, room, nick):
+  def __init__(self, *, host, user, password, muc_host, join_rooms, nick):
     jid = f"{user}@{host}"
 
     ClientXMPP.__init__(self, jid, password)
@@ -22,8 +23,10 @@ class XmppAgent(ClientXMPP):
     self.user = user
     self.jid = jid
     self.password = password
-    self.room = room
+    self.muc_host = muc_host
+    self.join_rooms = join_rooms
     self.nick = nick
+    self.join_room_jids = [f"{room}@{muc_host}" for room in self.join_rooms]
 
     # Allow insecure certificates
     #
@@ -62,8 +65,9 @@ class XmppAgent(ClientXMPP):
     # any presences you send yourself. To limit event handling
     # to a single room, use the events muc::room@server::presence,
     # muc::room@server::got_online, or muc::room@server::got_offline.
-    self.add_event_handler("muc::%s::got_online" % self.room,
-                           self.muc_online)
+    for room_jid in self.join_room_jids:
+      self.add_event_handler("muc::%s::got_online" % room_jid,
+                             self.muc_online)
 
     self.add_event_handler("groupchat_direct_invite",
                            self.groupchat_direct_invite)
@@ -131,11 +135,10 @@ class XmppAgent(ClientXMPP):
     """
     await self.get_roster()
     self.send_presence()
-    self.plugin['xep_0045'].join_muc(self.room,
-                                     self.nick,
-                                     # If a room password is needed, use:
-                                     # password=the_room_password,
-                                     )
+    print('Session started')
+    for room_jid in self.join_room_jids:
+      print('  Join room> jid:', room_jid, ', nick:', self.nick)
+      self.plugin['xep_0045'].join_muc(room_jid, self.nick)
 
   def chat(self, prompt):
     print("WARNING: XmppAgent.chat() should be defined in child class")
@@ -152,27 +155,11 @@ class XmppAgent(ClientXMPP):
            for stanza objects and the Message stanza to see
            how it may be used.
     """
-    print('msg:', msg)
-    print('msg type:', msg['type'])
-    print('msg body:', msg['body'])
-    print('msg mucnick:', msg['mucnick'])
-    print('msg from:', msg['from'])
-
-    # FIXME: DELETE
-    #
-    # # Extract the conference/room JID
-    # x_elem = msg.xml.find('{jabber:x:conference}x')
-    # print('x_elem:', x_elem)
-    # if x_elem is not None:
-    #   room_jid = x_elem.get('jid')
-    #   reason = x_elem.get('reason', '')
-    #   print(f"Received invitation to join {room_jid}")
-    #   print(f"Reason: {reason}")
-    #   # To accept the invitation, join the room
-    #   # self.plugin['xep_0045'].join_muc(room_jid, self.boundjid.user)
-    #   # Or you could decline it
-    #   # self.plugin['xep_0045'].decline_invite(msg['from'], room_jid)
-
+    # print('msg:', msg)
+    # print('msg type:', msg['type'])
+    # print('msg body:', msg['body'])
+    # print('msg mucnick:', msg['mucnick'])
+    # print('msg from:', msg['from'])
     if msg['type'] in ('chat', 'normal'):
       try:
         content = self.chat(msg['body'])
@@ -250,8 +237,10 @@ class XmppAgent(ClientXMPP):
     print(f"  Inviter: {msg['from']}")
     print(f"  Invitee: {msg['to']}")
     invite = msg.xml.find('.//{jabber:x:conference}x')
-    print(f"  Room: {invite.get('jid')}")
+    room_jid = invite.get('jid')
+    print(f"  Room: {room_jid}")
     print(f"  Reason: {invite.get('reason')}")
 
-    print('Joining the room> room_jid:', invite.get('jid'))
-    self.plugin['xep_0045'].join_muc(invite.get('jid'), self.nick)
+    print('Joining the room> room_jid:', room_jid)
+    self.add_event_handler("muc::%s::got_online" % room_jid, self.muc_online)
+    self.plugin['xep_0045'].join_muc(room_jid, self.nick)

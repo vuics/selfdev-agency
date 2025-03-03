@@ -18,14 +18,9 @@ The assistant is based on the document:
 
 import logging
 import os
-# import ssl
-# import time
 from dotenv import load_dotenv
-# from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-# from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_chroma import Chroma
-# from langchain_community.vectorstores import Weaviate
 from langchain import hub
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -35,15 +30,11 @@ import chromadb
 import json
 from langchain_community.document_loaders import DirectoryLoader
 from langchain_community.document_loaders import TextLoader
-from langchain_community.document_loaders import WebBaseLoader
-# from bs4 import SoupStrainer
-from langchain_googledrive.document_loaders import GoogleDriveLoader  # Use the advanced version.
+from langchain_googledrive.document_loaders import GoogleDriveLoader
 from langchain_community.document_loaders import UnstructuredFileIOLoader
 import weaviate
 from langchain_weaviate.vectorstores import WeaviateVectorStore
-
 import asyncio
-# import slixmpp
 
 from base_model import init_model, init_embeddings
 from xmpp_agent import XmppAgent
@@ -59,7 +50,9 @@ SYSTEM_MESSAGE = os.getenv("SYSTEM_MESSAGE", "")
 XMPP_HOST = os.getenv("XMPP_HOST", "selfdev-prosody.dev.local")
 XMPP_USER = os.getenv("XMPP_USER", AGENT_NAME)
 XMPP_PASSWORD = os.getenv("XMPP_PASSWORD", "123")
-XMPP_ROOM = os.getenv("XMPP_ROOM", f"team@conference.{XMPP_HOST}")
+XMPP_MUC_HOST = os.getenv("XMPP_MUC_HOST", f"conference.{XMPP_HOST}")
+XMPP_JOIN_ROOMS = json.loads(os.getenv('XMPP_JOIN_ROOMS',
+                                       '[ "team", "agents" ]'))
 XMPP_NICK = os.getenv("XMPP_NICK", AGENT_NAME)
 
 MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "openai")
@@ -273,7 +266,7 @@ class BobAgent(XmppAgent):
 
 if __name__ == '__main__':
   logging.basicConfig(
-    level=logging.DEBUG,  # level=logging.ERROR, level=logging.INFO,
+    level=logging.INFO,  # DEBUG, ERROR, INFO,
     format='%(levelname)-8s %(message)s'
   )
 
@@ -281,7 +274,8 @@ if __name__ == '__main__':
     host=XMPP_HOST,
     user=XMPP_USER,
     password=XMPP_PASSWORD,
-    room=XMPP_ROOM,
-    nick=XMPP_NICK
+    muc_host=XMPP_MUC_HOST,
+    join_rooms=XMPP_JOIN_ROOMS,
+    nick=XMPP_NICK,
   )
   asyncio.get_event_loop().run_forever()

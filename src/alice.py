@@ -3,10 +3,6 @@
 Alice Agent
 '''
 
-# Based on
-# https://slixmpp.readthedocs.io/en/latest/getting_started/muc.html
-# Slixmpp is an MIT licensed XMPP library for Python 3.7+,
-
 import logging
 import os
 import ssl
@@ -77,11 +73,16 @@ class AliceAgent(slixmpp.ClientXMPP):
     # our roster.
     self.add_event_handler("session_start", self.start)
 
+    # The message event is triggered whenever a message
+    # stanza is received. Be aware that that includes
+    # MUC messages and error messages.
+    self.add_event_handler("message", self.message)
+
     # The groupchat_message event is triggered whenever a message
     # stanza is received from any chat room. If you also also
     # register a handler for the 'message' event, MUC messages
     # will be processed by both handlers.
-    self.add_event_handler("groupchat_message", self.muc_message)
+    self.add_event_handler("groupchat_message", self.groupchat_message)
 
     # The groupchat_presence event is triggered whenever a
     # presence stanza is received from any chat room, including
@@ -94,6 +95,8 @@ class AliceAgent(slixmpp.ClientXMPP):
     self.register_plugin('xep_0030')  # Service Discovery
     self.register_plugin('xep_0045')  # Multi-User Chat
     self.register_plugin('xep_0199')  # XMPP Ping
+    self.register_plugin('xep_0004')  # Data Forms
+    self.register_plugin('xep_0060')  # PubSub
 
     self.connect()
 
@@ -139,6 +142,7 @@ class AliceAgent(slixmpp.ClientXMPP):
       print('XMPP registration error:', err)
       return False
 
+
   async def start(self, event):
     """
     Process the session_start event.
@@ -160,7 +164,47 @@ class AliceAgent(slixmpp.ClientXMPP):
                                      # password=the_room_password,
                                      )
 
-  def muc_message(self, msg):
+  def chat(self, prompt):
+    try:
+      print('prompt:', prompt)
+      ai_msg = model.invoke([
+        SystemMessage(SYSTEM_MESSAGE),
+        HumanMessage(prompt)
+      ])
+      print("ai_msg:", ai_msg.content)
+      return ai_msg.content
+    except Exception as err:
+      print('chat error:', err)
+      return 'Error: {str(err)}'
+
+  def message(self, msg):
+    """
+    Process incoming message stanzas. Be aware that this also
+    includes MUC messages and error messages. It is usually
+    a good idea to check the messages's type before processing
+    or sending replies.
+
+    Arguments:
+      msg -- The received message stanza. See the documentation
+           for stanza objects and the Message stanza to see
+           how it may be used.
+    """
+    # print('msg:', msg)
+    # print('msg type:', msg['type'])
+    # print('msg body:', msg['body'])
+    # print('msg mucnick:', msg['mucnick'])
+    # print('msg from:', msg['from'])
+    if msg['type'] in ('chat', 'normal'):
+      try:
+        content = self.chat(msg['body'])
+        # msg.reply(content).send()
+        self.send_message(mto=msg['from'].bare,
+                          mbody=content,
+                          mtype='chat')
+      except Exception as err:
+        print('message error:', err)
+
+  def groupchat_message(self, msg):
     """
     Process incoming message stanzas from any chat room. Be aware
     that if you also have any handlers for the 'message' event,
@@ -185,21 +229,12 @@ class AliceAgent(slixmpp.ClientXMPP):
     # print('msg:', msg)
     if msg['mucnick'] != self.nick and self.nick in msg['body']:
       try:
-        prompt = msg['body']
-        print('prompt:', prompt)
-        ai_msg = model.invoke([
-          SystemMessage(SYSTEM_MESSAGE),
-          HumanMessage(prompt)
-        ])
-        print("ai_msg:", ai_msg.content)
+        content = self.chat(msg['body'])
         self.send_message(mto=msg['from'].bare,
-                          mbody=ai_msg.content,
+                          mbody=content,
                           mtype='groupchat')
       except Exception as err:
-        print('Chat error:', err)
-        self.send_message(mto=msg['from'].bare,
-                          mbody=f'Error: {str(err)}',
-                          mtype='groupchat')
+        print('groupchat_message error:', err)
     # elif msg['mucnick'] != self.nick:
     #   self.send_message(mto=msg['from'].bare,
     #                     mbody=f"Echo: {msg['body']}",

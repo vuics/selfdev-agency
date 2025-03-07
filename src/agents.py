@@ -2,7 +2,7 @@
 '''
 XMPP Agency - Manages and runs XMPP agents based on MongoDB configuration
 
-Architect Instructions for AI: 
+Architect Instructions for AI:
 ---
 
 Read all the instruction carefully in this file and program accordingly with deep understanding of all details.
@@ -29,6 +29,7 @@ To ensure that only one container runs a particular agent while others remain id
 '''
 
 import asyncio
+import atexit
 import logging
 import os
 import json
@@ -67,8 +68,8 @@ MONITOR_SECONDS = int(os.getenv("MONITOR_SECONDS", "60"))
 
 # Redis settings for distributed locks
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis.dev.local:6379/0")
-REDIS_LOCK_TIMEOUT = int(os.getenv("REDIS_LOCK_TIMEOUT", "300"))  # 5 minutes
-REDIS_LOCK_REFRESH = int(os.getenv("REDIS_LOCK_REFRESH", "60"))   # 1 minute
+REDIS_LOCK_TIMEOUT = int(os.getenv("REDIS_LOCK_TIMEOUT", "120"))  # 2m
+REDIS_LOCK_REFRESH = int(os.getenv("REDIS_LOCK_REFRESH", "30"))   # 30s
 
 # Configure logging
 logging.basicConfig(
@@ -188,17 +189,17 @@ async def check_and_clear_stale_lock(agent_name: str) -> bool:
   if not redis_client:
     logger.error("Redis client not initialized")
     return False
-    
+
   lock_key = f"agent_lock:{agent_name}"
   heartbeat_key = f"agent_heartbeat:{agent_name}"
-  
+
   try:
     # Check if lock exists
     lock_owner = await redis_client.get(lock_key)
     if not lock_owner:
       # No lock exists
       return True
-        
+
     # Check if heartbeat exists and is recent
     last_heartbeat = await redis_client.get(heartbeat_key)
     if not last_heartbeat:
@@ -206,7 +207,7 @@ async def check_and_clear_stale_lock(agent_name: str) -> bool:
       logger.warning(f"Found stale lock for agent {agent_name} with no heartbeat, clearing")
       await redis_client.delete(lock_key)
       return True
-        
+
     # Check heartbeat timestamp
     try:
       heartbeat_time = float(last_heartbeat.decode())
@@ -223,7 +224,7 @@ async def check_and_clear_stale_lock(agent_name: str) -> bool:
       await redis_client.delete(lock_key)
       await redis_client.delete(heartbeat_key)
       return True
-        
+
     # Lock exists and has a recent heartbeat
     return False
   except Exception as e:
@@ -233,16 +234,16 @@ async def check_and_clear_stale_lock(agent_name: str) -> bool:
 async def acquire_lock(agent_name: str) -> bool:
   """
   Acquire a distributed lock for an agent to ensure only one container runs it
-  
+
   Returns True if lock was acquired, False otherwise
   """
   if not redis_client:
     logger.error("Redis client not initialized")
     return False
-    
+
   lock_key = f"agent_lock:{agent_name}"
   heartbeat_key = f"agent_heartbeat:{agent_name}"
-  
+
   try:
     # Check if we already own this lock
     lock_owner = await redis_client.get(lock_key)
@@ -251,21 +252,21 @@ async def acquire_lock(agent_name: str) -> bool:
       # Update heartbeat
       await redis_client.set(heartbeat_key, str(time.time()), ex=REDIS_LOCK_TIMEOUT*2)
       return True
-        
+
     # Check for and clear stale locks
     lock_cleared = await check_and_clear_stale_lock(agent_name)
     if not lock_cleared:
       logger.debug(f"Failed to acquire lock for agent {agent_name}, owned by {lock_owner}")
       return False
-        
+
     # Try to acquire the lock with our container ID
     acquired = await redis_client.set(
-      lock_key, 
+      lock_key,
       CONTAINER_ID,
       nx=True,  # Only set if key doesn't exist
       ex=REDIS_LOCK_TIMEOUT
     )
-    
+
     if acquired:
       # Set initial heartbeat
       await redis_client.set(heartbeat_key, str(time.time()), ex=REDIS_LOCK_TIMEOUT*2)
@@ -284,7 +285,7 @@ async def refresh_lock(agent_name: str):
   """Periodically refresh the lock to maintain ownership"""
   lock_key = f"agent_lock:{agent_name}"
   heartbeat_key = f"agent_heartbeat:{agent_name}"
-  
+
   while agent_name in running_agents:
     try:
       # Only refresh if we still own the lock
@@ -302,7 +303,7 @@ async def refresh_lock(agent_name: str):
         break
     except Exception as e:
       logger.error(f"Error refreshing lock for agent {agent_name}: {e}")
-    
+
     # Wait before refreshing again
     await asyncio.sleep(REDIS_LOCK_REFRESH)
 
@@ -310,10 +311,10 @@ async def release_lock(agent_name: str):
   """Release the distributed lock for an agent"""
   if not redis_client:
     return
-    
+
   lock_key = f"agent_lock:{agent_name}"
   heartbeat_key = f"agent_heartbeat:{agent_name}"
-  
+
   try:
     # Only delete the lock if we own it
     lock_owner = await redis_client.get(lock_key)
@@ -330,7 +331,7 @@ async def start_agent(config: AgentConfig) -> Optional[XmppAgent]:
     if not config.is_valid():
       logger.warning(f"Invalid agent configuration: {config}")
       return None
-      
+
     # Try to acquire a distributed lock for this agent
     lock_acquired = await acquire_lock(config.name)
     if not lock_acquired:
@@ -380,7 +381,7 @@ async def stop_agent(agent_name: str):
       agent.disconnect()
       del running_agents[agent_name]
       logger.info(f"Stopped agent: {agent_name}")
-      
+
       # Release the distributed lock
       await release_lock(agent_name)
     except Exception as e:
@@ -434,7 +435,7 @@ async def cleanup_locks():
   """Clean up all locks owned by this container on shutdown"""
   if not redis_client:
     return
-    
+
   try:
     # Get all lock keys
     lock_pattern = "agent_lock:*"
@@ -450,27 +451,40 @@ async def cleanup_locks():
             await release_lock(agent_name)
         except Exception as e:
           logger.error(f"Error cleaning up lock {key}: {e}")
-      
+
       if cursor == 0:
         break
   except Exception as e:
     logger.error(f"Error in cleanup_locks: {e}")
 
+def sync_cleanup_locks():
+  """Synchronous version of cleanup_locks for atexit registration"""
+  if running_agents:
+    logger.info(f"Emergency cleanup of locks for container {CONTAINER_ID}")
+    # Create a new event loop for the cleanup
+    loop = asyncio.new_event_loop()
+    try:
+      loop.run_until_complete(cleanup_locks())
+    except Exception as e:
+      logger.error(f"Error in emergency cleanup: {e}")
+    finally:
+      loop.close()
+
 async def shutdown():
   """Gracefully shut down the application"""
   logger.info("Shutting down XMPP agency...")
-  
+
   # Stop all running agents
   for agent_name in list(running_agents.keys()):
     await stop_agent(agent_name)
-  
+
   # Clean up any remaining locks
   await cleanup_locks()
-  
+
   # Close Redis connection
   if redis_client:
     await redis_client.close()
-  
+
   logger.info("Shutdown complete")
 
 async def main():
@@ -482,6 +496,9 @@ async def main():
     db = mongo_client[DB_NAME]
 
     logger.info(f"Starting XMPP agency with container ID: {CONTAINER_ID}")
+
+    # Register cleanup with atexit to handle unexpected shutdowns
+    atexit.register(sync_cleanup_locks)
 
     # Set up signal handlers for graceful shutdown
     loop = asyncio.get_running_loop()

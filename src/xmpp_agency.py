@@ -134,6 +134,7 @@ class AgentConfig:
 
   def is_valid(self) -> bool:
     """Check if the agent configuration is valid and should be deployed"""
+    # AI! Convert this return value to Boolean True or False
     return (
       self.deployed and
       self.schema_version == '0.1' and
@@ -147,6 +148,8 @@ class AgentConfig:
   def __str__(self) -> str:
     return f"Agent(name={self.name}, proto={self.proto_agent}, deployed={self.deployed}, valid={self.is_valid()}, model={self.model_provider}/{self.model_name})"
 
+  def __repr__(self) -> str:
+    return self.__str__()
 
 async def connect_to_mongodb() -> AsyncIOMotorClient:
   """Connect to MongoDB and return the client"""
@@ -235,9 +238,6 @@ async def sync_agents(db):
   """Synchronize running agents with the database configuration"""
   configs = await get_agent_configs(db)
   logger.debug('sync_agents():')
-  # AI! from the log below I am getting the output in the log:
-  # configs: [<__main__.AgentConfig object at 0xffff5f536e10>, <__main__.AgentConfig object at 0xffff5f534ce0>, <__main__.AgentConfig object at 0xffff5f64e990>, <__main__.AgentConfig object at 0xffff5f5d2d80>, <__main__.AgentConfig object at 0xffff5f5d2d50>]
-  # Could you show actual values from the config objects in the log by modifying the AgentConfig class to output the config values when it converts to string in the logger output?
   logger.debug(f'  configs: {configs}')
   logger.debug(f'  (before) running_agents: {running_agents}')
 

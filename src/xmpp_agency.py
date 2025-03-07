@@ -134,8 +134,7 @@ class AgentConfig:
 
   def is_valid(self) -> bool:
     """Check if the agent configuration is valid and should be deployed"""
-    # AI! Convert this return value to Boolean True or False
-    return (
+    return bool(
       self.deployed and
       self.schema_version == '0.1' and
       self.name and

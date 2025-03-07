@@ -145,7 +145,7 @@ class AgentConfig:
     )
 
   def __str__(self) -> str:
-    return f"Agent(name={self.name}, proto={self.proto_agent}, deployed={self.deployed})"
+    return f"Agent(name={self.name}, proto={self.proto_agent}, deployed={self.deployed}, valid={self.is_valid()}, model={self.model_provider}/{self.model_name})"
 
 
 async def connect_to_mongodb() -> AsyncIOMotorClient:

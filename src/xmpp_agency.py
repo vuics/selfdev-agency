@@ -95,6 +95,9 @@ XMPP_PASSWORD = os.getenv("XMPP_PASSWORD", "123")
 XMPP_MUC_HOST = os.getenv("XMPP_MUC_HOST", f"conference.{XMPP_HOST}")
 XMPP_JOIN_ROOMS = json.loads(os.getenv('XMPP_JOIN_ROOMS', '[ "team", "a-suite", "agents" ]'))
 
+# Agent monitoring settings
+MONITOR_SECONDS = int(os.getenv("MONITOR_SECONDS", "60"))
+
 # Configure logging
 logging.basicConfig(
   # level=logging.INFO,
@@ -272,8 +275,8 @@ async def monitor_agents(db):
       logger.error(f"Error in agent monitoring: {e}")
 
     # Wait before checking again
-    # AI! Create an environment variable MONITOR_SECONDS with the value of the sleep. Define this varable on top of the file in the code block that defines other global environment variables.
-    await asyncio.sleep(60)  # Check every minute
+    logger.debug(f"Waiting {MONITOR_SECONDS} seconds before next check")
+    await asyncio.sleep(MONITOR_SECONDS)  # Check based on environment variable
 
 
 async def main():

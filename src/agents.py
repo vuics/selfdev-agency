@@ -82,6 +82,30 @@ from alice import AliceAgent
 from xmpp_agent import XmppAgent
 from base_model import init_model
 
+
+
+# AI! Read all the instructions carefully in this comment and program accordingly with deep understanding of all details.
+# Develop this agents.py as a scalable microservice running in docker containers. Parallel the load, if one container runs the agent, the other container should not run it. So the load with agents should be distributed between containers. Only one container should run the agent. All the valid agents should run. The validation is already implemented by checking: deployed===True and schemaVersion===‘0.1’ with the agent are defined as documents stored in the agents collection in the MongoDB.
+# To ensure that only one container runs a particular agent while others remain idle, you can implement a **leader election** algorithm. Here’s how you might approach this:
+#    - Use a Distributed Lock. Develop a consensus system based on Redis with a locking mechanism. Every time an agent attempts to start, it tries to acquire a lock; only the container that successfully acquires the lock will run the agent, while others will remain passive.
+#    - Agent Coordination. When the active agent finishes its task, it should release the lock, allowing another container to take the lead.
+# The redis service defined in docker-compose.yml as:
+# ```yaml
+#   redis:
+#     hostname: redis.dev.local
+#     image: redis:6-alpine
+#     command: redis-server --appendonly yes
+#     ports:
+#     - 6379:6379
+#     volumes:
+#     - redis-volume:/data
+#     networks:
+#     - dev-network
+# ```
+
+
+
+
 # Load environment variables
 load_dotenv()
 

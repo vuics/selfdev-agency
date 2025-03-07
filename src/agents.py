@@ -5,7 +5,7 @@ XMPP Agency - Manages and runs XMPP agents based on MongoDB configuration
 # Architect Instructions for AI
 
 Read all the instruction carefully in this file and program accordingly with deep understanding of all details.
-Create an agency application on Python 3.12 (or higher) using asyncio in this file src/xmpp_agency.py.
+Create an agency application on Python 3.12 (or higher) using asyncio in this file src/agents.py.
 Use file requirements.txt to define the requirements and dependencies.
 The agency runs several agents like AliceAgent defined in src/alice.py and BobAgent defined in src/bob.py.
 Both AliceAgent and BobAgent derived from the base class XmppAgent defined in src/xmpp_agent.py.
@@ -104,7 +104,7 @@ logging.basicConfig(
   level=logging.DEBUG,
   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger("xmpp_agency")
+logger = logging.getLogger("agents")
 
 # Map of agent class names to their actual classes
 AGENT_CLASSES = {

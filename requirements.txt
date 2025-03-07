@@ -6,6 +6,7 @@ uvicorn==0.34.0
 httpx
 waitress==3.0.2
 redis==5.2.1
+redis.asyncio==5.2.1
 langchain==0.3.18
 # langchain-core==0.3.33
 langchain-core

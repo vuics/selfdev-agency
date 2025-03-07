@@ -70,10 +70,13 @@ import asyncio
 import logging
 import os
 import json
+import time
+import uuid
 from typing import Dict, Any, List, Optional, Type
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import ConnectionFailure
+import redis.asyncio as redis
 
 # Import agent classes
 from alice import AliceAgent
@@ -122,6 +125,11 @@ XMPP_JOIN_ROOMS = json.loads(os.getenv('XMPP_JOIN_ROOMS', '[ "team", "a-suite", 
 # Agent monitoring settings
 MONITOR_SECONDS = int(os.getenv("MONITOR_SECONDS", "60"))
 
+# Redis settings for distributed locks
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis.dev.local:6379/0")
+REDIS_LOCK_TIMEOUT = int(os.getenv("REDIS_LOCK_TIMEOUT", "300"))  # 5 minutes
+REDIS_LOCK_REFRESH = int(os.getenv("REDIS_LOCK_REFRESH", "60"))   # 1 minute
+
 # Configure logging
 logging.basicConfig(
   # level=logging.INFO,
@@ -139,6 +147,12 @@ AGENT_CLASSES = {
 
 # Running agents registry
 running_agents = {}
+
+# Generate a unique ID for this container instance
+CONTAINER_ID = str(uuid.uuid4())
+
+# Redis client for distributed locks
+redis_client = None
 
 class AgentConfig:
   """Python representation of the MongoDB agent schema"""
@@ -177,6 +191,18 @@ class AgentConfig:
   def __repr__(self) -> str:
     return self.__str__()
 
+async def connect_to_redis():
+  """Connect to Redis for distributed locks"""
+  global redis_client
+  try:
+    redis_client = redis.from_url(REDIS_URL)
+    await redis_client.ping()
+    logger.info(f"Connected to Redis at {REDIS_URL}")
+    return redis_client
+  except Exception as e:
+    logger.error(f"Failed to connect to Redis: {e}")
+    raise
+
 async def connect_to_mongodb() -> AsyncIOMotorClient:
   """Connect to MongoDB and return the client"""
   try:
@@ -208,11 +234,94 @@ async def get_agent_configs(db) -> List[AgentConfig]:
     return []
 
 
+async def acquire_lock(agent_name: str) -> bool:
+  """
+  Acquire a distributed lock for an agent to ensure only one container runs it
+  
+  Returns True if lock was acquired, False otherwise
+  """
+  if not redis_client:
+    logger.error("Redis client not initialized")
+    return False
+    
+  lock_key = f"agent_lock:{agent_name}"
+  
+  try:
+    # Try to acquire the lock with our container ID
+    acquired = await redis_client.set(
+      lock_key, 
+      CONTAINER_ID,
+      nx=True,  # Only set if key doesn't exist
+      ex=REDIS_LOCK_TIMEOUT
+    )
+    
+    if acquired:
+      logger.info(f"Acquired lock for agent {agent_name}")
+      # Start a background task to refresh the lock
+      asyncio.create_task(refresh_lock(agent_name))
+      return True
+    else:
+      # Check if we already own this lock
+      lock_owner = await redis_client.get(lock_key)
+      if lock_owner and lock_owner.decode() == CONTAINER_ID:
+        logger.debug(f"Already own lock for agent {agent_name}")
+        return True
+      else:
+        logger.debug(f"Failed to acquire lock for agent {agent_name}, owned by {lock_owner}")
+        return False
+  except Exception as e:
+    logger.error(f"Error acquiring lock for agent {agent_name}: {e}")
+    return False
+
+async def refresh_lock(agent_name: str):
+  """Periodically refresh the lock to maintain ownership"""
+  lock_key = f"agent_lock:{agent_name}"
+  
+  while agent_name in running_agents:
+    try:
+      # Only refresh if we still own the lock
+      lock_owner = await redis_client.get(lock_key)
+      if lock_owner and lock_owner.decode() == CONTAINER_ID:
+        await redis_client.expire(lock_key, REDIS_LOCK_TIMEOUT)
+        logger.debug(f"Refreshed lock for agent {agent_name}")
+      else:
+        logger.warning(f"Lost lock ownership for agent {agent_name}")
+        # We lost the lock, stop the agent
+        await stop_agent(agent_name)
+        break
+    except Exception as e:
+      logger.error(f"Error refreshing lock for agent {agent_name}: {e}")
+    
+    # Wait before refreshing again
+    await asyncio.sleep(REDIS_LOCK_REFRESH)
+
+async def release_lock(agent_name: str):
+  """Release the distributed lock for an agent"""
+  if not redis_client:
+    return
+    
+  lock_key = f"agent_lock:{agent_name}"
+  
+  try:
+    # Only delete the lock if we own it
+    lock_owner = await redis_client.get(lock_key)
+    if lock_owner and lock_owner.decode() == CONTAINER_ID:
+      await redis_client.delete(lock_key)
+      logger.info(f"Released lock for agent {agent_name}")
+  except Exception as e:
+    logger.error(f"Error releasing lock for agent {agent_name}: {e}")
+
 async def start_agent(config: AgentConfig) -> Optional[XmppAgent]:
   """Start an agent based on its configuration"""
   try:
     if not config.is_valid():
       logger.warning(f"Invalid agent configuration: {config}")
+      return None
+      
+    # Try to acquire a distributed lock for this agent
+    lock_acquired = await acquire_lock(config.name)
+    if not lock_acquired:
+      logger.info(f"Agent {config.name} is already running in another container")
       return None
 
     # Get the appropriate agent class
@@ -244,6 +353,8 @@ async def start_agent(config: AgentConfig) -> Optional[XmppAgent]:
     logger.info(f"Started agent: {config.name} ({config.proto_agent})")
     return agent
   except Exception as e:
+    # Release the lock if we failed to start the agent
+    await release_lock(config.name)
     logger.error(f"Error starting agent {config.name}: {e}")
     return None
 
@@ -256,6 +367,9 @@ async def stop_agent(agent_name: str):
       agent.disconnect()
       del running_agents[agent_name]
       logger.info(f"Stopped agent: {agent_name}")
+      
+      # Release the distributed lock
+      await release_lock(agent_name)
     except Exception as e:
       logger.error(f"Error stopping agent {agent_name}: {e}")
 
@@ -306,9 +420,12 @@ async def monitor_agents(db):
 async def main():
   """Main entry point for the XMPP agency"""
   try:
-    # Connect to MongoDB
+    # Connect to MongoDB and Redis
     mongo_client = await connect_to_mongodb()
+    await connect_to_redis()
     db = mongo_client[DB_NAME]
+
+    logger.info(f"Starting XMPP agency with container ID: {CONTAINER_ID}")
 
     # Start monitoring for changes
     monitor_task = asyncio.create_task(monitor_agents(db))

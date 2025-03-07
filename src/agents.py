@@ -2,7 +2,8 @@
 '''
 XMPP Agency - Manages and runs XMPP agents based on MongoDB configuration
 
-# Architect Instructions for AI
+Architect Instructions for AI: 
+---
 
 Read all the instruction carefully in this file and program accordingly with deep understanding of all details.
 Create an agency application on Python 3.12 (or higher) using asyncio in this file src/agents.py.
@@ -16,54 +17,15 @@ You can add other options to the schema if needed.
 We run MongoDB with `DB_URL=mongodb://mongo.dev.local:27017/selfdev`, in which the collection `agents` exists.
 The agency should read all the documents in the 'agents' collection.
 Only run the agent if its `options.schemaVersion==='0.1'` and the agent is deployed (`options.deployed===True`).
-The schema of each agent defined in agent.js in another Node.js repo with API server (I copy-pasted it below).
-Translate the schema defined on Node.js to Python:
-```js
-export default mongoose.model(
-  'Agent', // translates to 'agents' by Mongoose driver of MongoDB
-  mongoose.Schema({
-    userId: {
-      type: ObjectId,
-      required: true,
-      ref: 'User'
-    },
 
-    deployed: false, // only run the agents with deployed===true
+---
 
-    options: {
-      schemaVersion: String, // current schemaVersion==='0.1'
+Read all the instructions carefully in this comment and program accordingly with deep understanding of all details.
+Develop this agents.py as a scalable microservice running in docker containers. Parallel the load, if one container runs the agent, the other container should not run it. So the load with agents should be distributed between containers. Only one container should run the agent. All the valid agents should run. The validation is already implemented by checking: deployed===True and schemaVersion===‘0.1’ with the agent are defined as documents stored in the agents collection in the MongoDB.
+To ensure that only one container runs a particular agent while others remain idle, you can implement a **leader election** algorithm. Here’s how you might approach this:
+   - Use a Distributed Lock. Develop a consensus system based on Redis with a locking mechanism. Every time an agent attempts to start, it tries to acquire a lock; only the container that successfully acquires the lock will run the agent, while others will remain passive.
+   - Agent Coordination. When the active agent finishes its task, it should release the lock, allowing another container to take the lead.
 
-      name: String, // unique name
-      description: String,
-
-      systemMessage: String, // SystemMessage(SYSTEM_MESSAGE) to pass to LLM on LangChain
-
-      protoAgent: String, // 'AliceAgent' or 'BobAgent' class on Python
-      joinRooms: [ String ], // XMPP rooms to join,
-
-      model: {
-        provider: String, // Name of the LLM model provider such as 'openai' or 'anthropic'
-        name: String, // Name of the LLM such as 'gpt-4o-mini' or 'claude-3-5-sonnet-20240620'
-      },
-
-      // other options will be defined here
-    },
-  })
-    .plugin(mongooseTimestamp)
-)
-```
-
-The XMPP settings will be taken from the environment variables:
-```python
-XMPP_HOST = os.getenv("XMPP_HOST", "selfdev-prosody.dev.local")
-XMPP_PASSWORD = os.getenv("XMPP_PASSWORD", "123")
-XMPP_MUC_HOST = os.getenv("XMPP_MUC_HOST", f"conference.{XMPP_HOST}")
-XMPP_JOIN_ROOMS = json.loads(os.getenv('XMPP_JOIN_ROOMS', '[ "team", "a-suite", "agents" ]'))
-```
-Except of the XMPP_USER and XMPP_NICK, they should be redefined from the 'agents' collection document based on the `options.name`.
-XMPP_USER = os.getenv("XMPP_USER", AGENT_NAME)
-XMPP_NICK = os.getenv("XMPP_NICK", AGENT_NAME)
-```
 '''
 
 import asyncio
@@ -84,29 +46,6 @@ from alice import AliceAgent
 # from bob import BobAgent
 from xmpp_agent import XmppAgent
 from base_model import init_model
-
-
-
-# AI! Read all the instructions carefully in this comment and program accordingly with deep understanding of all details.
-# Develop this agents.py as a scalable microservice running in docker containers. Parallel the load, if one container runs the agent, the other container should not run it. So the load with agents should be distributed between containers. Only one container should run the agent. All the valid agents should run. The validation is already implemented by checking: deployed===True and schemaVersion===‘0.1’ with the agent are defined as documents stored in the agents collection in the MongoDB.
-# To ensure that only one container runs a particular agent while others remain idle, you can implement a **leader election** algorithm. Here’s how you might approach this:
-#    - Use a Distributed Lock. Develop a consensus system based on Redis with a locking mechanism. Every time an agent attempts to start, it tries to acquire a lock; only the container that successfully acquires the lock will run the agent, while others will remain passive.
-#    - Agent Coordination. When the active agent finishes its task, it should release the lock, allowing another container to take the lead.
-# The redis service defined in docker-compose.yml as:
-# ```yaml
-#   redis:
-#     hostname: redis.dev.local
-#     image: redis:6-alpine
-#     command: redis-server --appendonly yes
-#     ports:
-#     - 6379:6379
-#     volumes:
-#     - redis-volume:/data
-#     networks:
-#     - dev-network
-# ```
-
-
 
 
 # Load environment variables
@@ -195,7 +134,13 @@ async def connect_to_redis():
   """Connect to Redis for distributed locks"""
   global redis_client
   try:
-    redis_client = redis.from_url(REDIS_URL)
+    redis_client = await redis.Redis.from_url(
+      REDIS_URL,
+      decode_responses=False,
+      socket_timeout=5,
+      socket_connect_timeout=5,
+      retry_on_timeout=True
+    )
     await redis_client.ping()
     logger.info(f"Connected to Redis at {REDIS_URL}")
     return redis_client

@@ -1,10 +1,7 @@
 '''
 Base XMPP Agent
 '''
-import logging
-import os
 import ssl
-import asyncio
 from slixmpp import ClientXMPP
 import httpx
 
@@ -14,9 +11,8 @@ class XmppAgent(ClientXMPP):
   A Base XMPP Agent
   """
 
-  def __init__(self, *, host, user, password, muc_host, join_rooms, nick):
+  def __init__(self, *, host, user, password, muc_host, join_rooms, nick, options):
     jid = f"{user}@{host}"
-
     ClientXMPP.__init__(self, jid, password)
 
     self.host = host
@@ -27,6 +23,7 @@ class XmppAgent(ClientXMPP):
     self.join_rooms = join_rooms
     self.nick = nick
     self.join_room_jids = [f"{room}@{muc_host}" for room in self.join_rooms]
+    self.options = options
 
     # Allow insecure certificates
     #
@@ -80,6 +77,9 @@ class XmppAgent(ClientXMPP):
     self.register_plugin('xep_0249')  # Direct MUC Invitations
 
     self.connect()
+
+  def start(self):
+    pass
 
   def ssl_invalid_cert(self, pem_cert):
     print("Warning: Invalid SSL certificate received")

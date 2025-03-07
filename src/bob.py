@@ -44,7 +44,6 @@ from helpers import str_to_bool
 
 load_dotenv()
 
-
 AGENT_NAME = os.getenv("AGENT_NAME", "bob")
 SYSTEM_MESSAGE = os.getenv("SYSTEM_MESSAGE", "")
 
@@ -252,6 +251,8 @@ print('Graph compiled')
 
 
 class BobAgent(XmppAgent):
+  # def __init__(self, *, host, user, password, muc_host, join_rooms, nick, options):
+  #   XmppAgent.__init__(self, host, user, password, muc_host, join_rooms, nick, options)
 
   def chat(self, prompt):
     try:

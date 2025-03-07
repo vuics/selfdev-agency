@@ -29,6 +29,7 @@ To ensure that only one container runs a particular agent while others remain id
 '''
 
 import asyncio
+import random
 import atexit
 import logging
 import os
@@ -41,13 +42,13 @@ from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import ConnectionFailure
 import redis.asyncio as redis
+from box import Box
 
 # Import agent classes
 from alice import AliceAgent
 # FIXME: enable back
 # from bob import BobAgent
 from xmpp_agent import XmppAgent
-from base_model import init_model
 
 
 # Load environment variables
@@ -55,27 +56,28 @@ load_dotenv()
 
 # MongoDB connection settings
 DB_URL = os.getenv("DB_URL", "mongodb://mongo.dev.local:27017/selfdev")
-DB_NAME = DB_URL.split('/')[-1]
 
 # XMPP default settings
 XMPP_HOST = os.getenv("XMPP_HOST", "selfdev-prosody.dev.local")
 XMPP_PASSWORD = os.getenv("XMPP_PASSWORD", "123")
 XMPP_MUC_HOST = os.getenv("XMPP_MUC_HOST", f"conference.{XMPP_HOST}")
-XMPP_JOIN_ROOMS = json.loads(os.getenv('XMPP_JOIN_ROOMS', '[ "team", "a-suite", "agents" ]'))
+XMPP_JOIN_ROOMS_DEFAULT = json.loads(os.getenv('XMPP_JOIN_ROOMS_DEFAULT', '[ "all" ]'))
 
 # Agent monitoring settings
 MONITOR_SECONDS = int(os.getenv("MONITOR_SECONDS", "60"))
 
 # Redis settings for distributed locks
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis.dev.local:6379/0")
-REDIS_LOCK_TIMEOUT = int(os.getenv("REDIS_LOCK_TIMEOUT", "120"))  # 2m
-REDIS_LOCK_REFRESH = int(os.getenv("REDIS_LOCK_REFRESH", "30"))   # 30s
+REDIS_SOCKET_TIMEOUT = int(os.getenv("REDIS_SOCKET_TIMEOUT", "10"))  # 10s
+REDIS_CONNECT_TIMEOUT = int(os.getenv("REDIS_CONNECT_TIMEOUT", "15"))  # 15s
+LOCK_TIMEOUT = int(os.getenv("LOCK_TIMEOUT", "120"))  # 2m
+LOCK_REFRESH = int(os.getenv("LOCK_REFRESH", "30"))   # 30s
 
 # Configure logging
 logging.basicConfig(
   # level=logging.INFO,
   level=logging.DEBUG,
-  format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  format='%(levelname)s: %(message)s'
 )
 logger = logging.getLogger("agents")
 
@@ -101,34 +103,21 @@ class AgentConfig:
   def __init__(self, doc: Dict[str, Any]):
     self.id = str(doc.get('_id'))
     self.user_id = str(doc.get('userId'))
+
     self.deployed = doc.get('deployed', False)
-
-    options = doc.get('options', {})
-    self.schema_version = options.get('schemaVersion')
-    self.name = options.get('name')
-    self.description = options.get('description')
-    self.system_message = options.get('systemMessage', '')
-    self.proto_agent = options.get('protoAgent')
-    self.join_rooms = options.get('joinRooms', [])
-
-    model = options.get('model', {})
-    self.model_provider = model.get('provider')
-    self.model_name = model.get('name')
+    self.options = Box(doc.get('options', {}))
+    self.schemaVersion = self.options.schemaVersion
+    self.name = self.options.name
+    self.protoAgent = self.options.protoAgent
+    self.joinRooms = self.options.joinRooms
 
   def is_valid(self) -> bool:
     """Check if the agent configuration is valid and should be deployed"""
-    return bool(
-      self.deployed and
-      self.schema_version == '0.1' and
-      self.name and
-      self.proto_agent and
-      self.proto_agent in AGENT_CLASSES and
-      self.model_provider and
-      self.model_name
-    )
+    return bool(self.deployed and self.schemaVersion == '0.1' and
+                self.name and self.protoAgent in AGENT_CLASSES)
 
   def __str__(self) -> str:
-    return f"Agent(name={self.name}, proto={self.proto_agent}, deployed={self.deployed}, model={self.model_provider}/{self.model_name} => valid={self.is_valid()})"
+    return f"""{self.protoAgent}({self.name}, {self.deployed and 'deployed' or 'undeployed'}, {self.is_valid() and 'valid' or 'invalid'}) in {self.joinRooms}"""
 
   def __repr__(self) -> str:
     return self.__str__()
@@ -141,9 +130,9 @@ async def connect_to_redis():
     redis_client = await redis.Redis.from_url(
       REDIS_URL,
       decode_responses=False,
-      socket_timeout=5,
-      socket_connect_timeout=5,
-      retry_on_timeout=True
+      retry_on_timeout=True,
+      socket_timeout=REDIS_SOCKET_TIMEOUT,
+      socket_connect_timeout=REDIS_CONNECT_TIMEOUT,
     )
     await redis_client.ping()
     logger.info(f"Connected to Redis at {REDIS_URL}")
@@ -215,7 +204,7 @@ async def check_and_clear_stale_lock(agent_name: str) -> bool:
     try:
       heartbeat_time = float(last_heartbeat.decode())
       current_time = time.time()
-      if current_time - heartbeat_time > REDIS_LOCK_TIMEOUT:
+      if current_time - heartbeat_time > LOCK_TIMEOUT:
         # Heartbeat is too old, lock is stale
         logger.warning(f"Found stale lock for agent {agent_name} with old heartbeat, clearing")
         await redis_client.delete(lock_key)
@@ -254,7 +243,7 @@ async def acquire_lock(agent_name: str) -> bool:
     if lock_owner and lock_owner.decode() == CONTAINER_ID:
       logger.debug(f"Already own lock for agent {agent_name}")
       # Update heartbeat
-      await redis_client.set(heartbeat_key, str(time.time()), ex=REDIS_LOCK_TIMEOUT * 2)
+      await redis_client.set(heartbeat_key, str(time.time()), ex=LOCK_TIMEOUT * 2)
       return True
 
     # Check for and clear stale locks
@@ -268,12 +257,12 @@ async def acquire_lock(agent_name: str) -> bool:
       lock_key,
       CONTAINER_ID,
       nx=True,  # Only set if key doesn't exist
-      ex=REDIS_LOCK_TIMEOUT
+      ex=LOCK_TIMEOUT
     )
 
     if acquired:
       # Set initial heartbeat
-      await redis_client.set(heartbeat_key, str(time.time()), ex=REDIS_LOCK_TIMEOUT * 2)
+      await redis_client.set(heartbeat_key, str(time.time()), ex=LOCK_TIMEOUT * 2)
       logger.info(f"Acquired lock for agent {agent_name}")
       # Start a background task to refresh the lock
       asyncio.create_task(refresh_lock(agent_name))
@@ -297,9 +286,9 @@ async def refresh_lock(agent_name: str):
       lock_owner = await redis_client.get(lock_key)
       if lock_owner and lock_owner.decode() == CONTAINER_ID:
         # Refresh lock expiration
-        await redis_client.expire(lock_key, REDIS_LOCK_TIMEOUT)
+        await redis_client.expire(lock_key, LOCK_TIMEOUT)
         # Update heartbeat timestamp
-        await redis_client.set(heartbeat_key, str(time.time()), ex=REDIS_LOCK_TIMEOUT * 2)
+        await redis_client.set(heartbeat_key, str(time.time()), ex=LOCK_TIMEOUT * 2)
         logger.debug(f"Refreshed lock for agent {agent_name}")
       else:
         logger.warning(f"Lost lock ownership for agent {agent_name}")
@@ -310,7 +299,7 @@ async def refresh_lock(agent_name: str):
       logger.error(f"Error refreshing lock for agent {agent_name}: {e}")
 
     # Wait before refreshing again
-    await asyncio.sleep(REDIS_LOCK_REFRESH)
+    await asyncio.sleep(LOCK_REFRESH)
 
 
 async def release_lock(agent_name: str):
@@ -346,14 +335,7 @@ async def start_agent(config: AgentConfig) -> Optional[XmppAgent]:
       return None
 
     # Get the appropriate agent class
-    agent_class: Type[XmppAgent] = AGENT_CLASSES[config.proto_agent]
-
-    # FIXME: Do the opposite way from os.environ assign to config (by default if not set)
-    # Set environment variables for the agent
-    os.environ["AGENT_NAME"] = config.name
-    os.environ["SYSTEM_MESSAGE"] = config.system_message
-    os.environ["MODEL_PROVIDER"] = config.model_provider
-    os.environ["MODEL_NAME"] = config.model_name
+    agent_class: Type[XmppAgent] = AGENT_CLASSES[config.protoAgent]
 
     # Create and start the agent
     agent = agent_class(
@@ -361,11 +343,13 @@ async def start_agent(config: AgentConfig) -> Optional[XmppAgent]:
       user=config.name,  # Use agent name as XMPP username
       password=XMPP_PASSWORD,
       muc_host=XMPP_MUC_HOST,
-      join_rooms=config.join_rooms or XMPP_JOIN_ROOMS,
+      join_rooms=config.joinRooms or XMPP_JOIN_ROOMS_DEFAULT,
       nick=config.name,  # Use agent name as XMPP nickname
+      options=config.options,
     )
+    agent.start()
 
-    logger.info(f"Started agent: {config.name} ({config.proto_agent})")
+    logger.info(f"Started agent: {config.name} ({config.protoAgent})")
     return agent
   except Exception as e:
     # Release the lock if we failed to start the agent
@@ -476,7 +460,6 @@ def sync_cleanup_locks():
 async def shutdown():
   """Gracefully shut down the application"""
   logger.info("Shutting down XMPP agency...")
-
   # Stop all running agents
   for agent_name in list(running_agents.keys()):
     await stop_agent(agent_name)
@@ -487,17 +470,22 @@ async def shutdown():
   # Close Redis connection
   if redis_client:
     await redis_client.close()
-
   logger.info("Shutdown complete")
 
 
 async def main():
   """Main entry point for the XMPP agency"""
   try:
+    sleep_time_sec = random.randint(0, 3000) / 1000
+    logger.info(f"Sleep randomly for {sleep_time_sec:.3f} seconds)")
+    await asyncio.sleep(sleep_time_sec)
+
     # Connect to MongoDB and Redis
     mongo_client = await connect_to_mongodb()
+    db_name = DB_URL.split('/')[-1]
+    db = mongo_client[db_name]
+
     await connect_to_redis()
-    db = mongo_client[DB_NAME]
 
     logger.info(f"Starting XMPP agency with container ID: {CONTAINER_ID}")
 

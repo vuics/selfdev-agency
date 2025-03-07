@@ -59,3 +59,230 @@
 # XMPP_NICK = os.getenv("XMPP_NICK", AGENT_NAME)
 # ```
 
+#!/usr/bin/env python
+'''
+XMPP Agency - Manages and runs XMPP agents based on MongoDB configuration
+'''
+
+import asyncio
+import logging
+import os
+import json
+from typing import Dict, Any, List, Optional, Type
+from dotenv import load_dotenv
+from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import ConnectionFailure
+
+# Import agent classes
+from alice import AliceAgent
+from bob import BobAgent
+from xmpp_agent import XmppAgent
+from base_model import init_model
+
+# Load environment variables
+load_dotenv()
+
+# MongoDB connection settings
+DB_URL = os.getenv("DB_URL", "mongodb://mongo.dev.local:27017/selfdev")
+DB_NAME = DB_URL.split('/')[-1]
+
+# XMPP default settings
+XMPP_HOST = os.getenv("XMPP_HOST", "selfdev-prosody.dev.local")
+XMPP_PASSWORD = os.getenv("XMPP_PASSWORD", "123")
+XMPP_MUC_HOST = os.getenv("XMPP_MUC_HOST", f"conference.{XMPP_HOST}")
+XMPP_JOIN_ROOMS = json.loads(os.getenv('XMPP_JOIN_ROOMS', '[ "team", "a-suite", "agents" ]'))
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("xmpp_agency")
+
+# Map of agent class names to their actual classes
+AGENT_CLASSES = {
+    "AliceAgent": AliceAgent,
+    "BobAgent": BobAgent,
+}
+
+# Running agents registry
+running_agents = {}
+
+class AgentConfig:
+    """Python representation of the MongoDB agent schema"""
+    def __init__(self, doc: Dict[str, Any]):
+        self.id = str(doc.get('_id'))
+        self.user_id = str(doc.get('userId'))
+        self.deployed = doc.get('deployed', False)
+        
+        options = doc.get('options', {})
+        self.schema_version = options.get('schemaVersion')
+        self.name = options.get('name')
+        self.description = options.get('description')
+        self.system_message = options.get('systemMessage', '')
+        self.proto_agent = options.get('protoAgent')
+        self.join_rooms = options.get('joinRooms', [])
+        
+        model = options.get('model', {})
+        self.model_provider = model.get('provider')
+        self.model_name = model.get('name')
+
+    def is_valid(self) -> bool:
+        """Check if the agent configuration is valid and should be deployed"""
+        return (
+            self.deployed and 
+            self.schema_version == '0.1' and
+            self.name and
+            self.proto_agent and
+            self.proto_agent in AGENT_CLASSES and
+            self.model_provider and
+            self.model_name
+        )
+
+    def __str__(self) -> str:
+        return f"Agent(name={self.name}, proto={self.proto_agent}, deployed={self.deployed})"
+
+
+async def connect_to_mongodb() -> AsyncIOMotorClient:
+    """Connect to MongoDB and return the client"""
+    try:
+        client = AsyncIOMotorClient(DB_URL)
+        # Verify connection is working
+        await client.admin.command('ping')
+        logger.info(f"Connected to MongoDB at {DB_URL}")
+        return client
+    except ConnectionFailure as e:
+        logger.error(f"Failed to connect to MongoDB: {e}")
+        raise
+
+
+async def get_agent_configs(db) -> List[AgentConfig]:
+    """Retrieve all agent configurations from MongoDB"""
+    try:
+        agents_collection = db.agents
+        cursor = agents_collection.find({})
+        configs = []
+        
+        async for doc in cursor:
+            config = AgentConfig(doc)
+            configs.append(config)
+            
+        logger.info(f"Retrieved {len(configs)} agent configurations")
+        return configs
+    except Exception as e:
+        logger.error(f"Error retrieving agent configurations: {e}")
+        return []
+
+
+async def start_agent(config: AgentConfig) -> Optional[XmppAgent]:
+    """Start an agent based on its configuration"""
+    try:
+        if not config.is_valid():
+            logger.warning(f"Invalid agent configuration: {config}")
+            return None
+            
+        # Get the appropriate agent class
+        agent_class: Type[XmppAgent] = AGENT_CLASSES[config.proto_agent]
+        
+        # Initialize the model for the agent
+        model = init_model(
+            model_provider=config.model_provider,
+            model_name=config.model_name
+        )
+        
+        # Set environment variables for the agent
+        os.environ["AGENT_NAME"] = config.name
+        os.environ["SYSTEM_MESSAGE"] = config.system_message
+        os.environ["MODEL_PROVIDER"] = config.model_provider
+        os.environ["MODEL_NAME"] = config.model_name
+        
+        # Create and start the agent
+        agent = agent_class(
+            host=XMPP_HOST,
+            user=config.name,  # Use agent name as XMPP username
+            password=XMPP_PASSWORD,
+            muc_host=XMPP_MUC_HOST,
+            join_rooms=config.join_rooms or XMPP_JOIN_ROOMS,
+            nick=config.name,  # Use agent name as XMPP nickname
+        )
+        
+        logger.info(f"Started agent: {config.name} ({config.proto_agent})")
+        return agent
+    except Exception as e:
+        logger.error(f"Error starting agent {config.name}: {e}")
+        return None
+
+
+async def stop_agent(agent_name: str):
+    """Stop a running agent"""
+    if agent_name in running_agents:
+        try:
+            agent = running_agents[agent_name]
+            agent.disconnect()
+            del running_agents[agent_name]
+            logger.info(f"Stopped agent: {agent_name}")
+        except Exception as e:
+            logger.error(f"Error stopping agent {agent_name}: {e}")
+
+
+async def sync_agents(db):
+    """Synchronize running agents with the database configuration"""
+    configs = await get_agent_configs(db)
+    
+    # Track which agents should be running
+    should_run = {}
+    
+    # Start new agents or update existing ones
+    for config in configs:
+        if config.is_valid():
+            should_run[config.name] = config
+            
+            if config.name not in running_agents:
+                # Start new agent
+                agent = await start_agent(config)
+                if agent:
+                    running_agents[config.name] = agent
+    
+    # Stop agents that should no longer be running
+    for agent_name in list(running_agents.keys()):
+        if agent_name not in should_run:
+            await stop_agent(agent_name)
+
+
+async def monitor_agents(db):
+    """Periodically check for changes in agent configurations"""
+    while True:
+        try:
+            await sync_agents(db)
+        except Exception as e:
+            logger.error(f"Error in agent monitoring: {e}")
+        
+        # Wait before checking again
+        await asyncio.sleep(60)  # Check every minute
+
+
+async def main():
+    """Main entry point for the XMPP agency"""
+    try:
+        # Connect to MongoDB
+        mongo_client = await connect_to_mongodb()
+        db = mongo_client[DB_NAME]
+        
+        # Initial sync of agents
+        await sync_agents(db)
+        
+        # Start monitoring for changes
+        monitor_task = asyncio.create_task(monitor_agents(db))
+        
+        # Keep the application running
+        await asyncio.gather(monitor_task)
+    except Exception as e:
+        logger.error(f"Fatal error in XMPP agency: {e}")
+    finally:
+        # Ensure all agents are stopped on shutdown
+        for agent_name in list(running_agents.keys()):
+            await stop_agent(agent_name)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

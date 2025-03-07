@@ -48,7 +48,11 @@ setuptools.setup(
     'python-magic==0.4.27',
     'chromadb==0.6.3',
     'weaviate-client==4.10.4',
-    'langchain-weaviate==0.0.4'
+    'langchain-weaviate==0.0.4',
+    
+    # MongoDB driver
+    'motor==3.3.2',
+    'pymongo==4.6.2',
 
     # 'autogen-core==0.4.2',
     # 'autogen-agentchat==0.4.2',

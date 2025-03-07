@@ -40,6 +40,5 @@ COPY src/*.py ./src/
 COPY README.md ./
 COPY input/* ./input/
 
-# RUN pip install aiodns==3.2.0
-
-# CMD [ "/bin/bash", "-c", "TBS" ]
+# Run the XMPP agency by default
+CMD ["python", "-m", "src.xmpp_agency"]

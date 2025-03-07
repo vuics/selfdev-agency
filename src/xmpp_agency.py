@@ -145,7 +145,7 @@ class AgentConfig:
     )
 
   def __str__(self) -> str:
-    return f"Agent(name={self.name}, proto={self.proto_agent}, deployed={self.deployed}, valid={self.is_valid()}, model={self.model_provider}/{self.model_name})"
+    return f"Agent(name={self.name}, proto={self.proto_agent}, deployed={self.deployed}, model={self.model_provider}/{self.model_name} => valid={self.is_valid()})"
 
   def __repr__(self) -> str:
     return self.__str__()
@@ -254,13 +254,13 @@ async def sync_agents(db):
         agent = await start_agent(config)
         if agent:
           running_agents[config.name] = agent
-  logger.debug(f'  (after) running_agents: {running_agents}')
 
   # Stop agents that should no longer be running
   for agent_name in list(running_agents.keys()):
     if agent_name not in should_run:
       logger.debug(f'  stop agent: {config.name}')
       await stop_agent(agent_name)
+  logger.debug(f'  (after) running_agents: {running_agents}')
 
 
 async def monitor_agents(db):
@@ -272,6 +272,7 @@ async def monitor_agents(db):
       logger.error(f"Error in agent monitoring: {e}")
 
     # Wait before checking again
+    # AI! Create an environment variable MONITOR_SECONDS with the value of the sleep. Define this varable on top of the file in the code block that defines other global environment variables.
     await asyncio.sleep(60)  # Check every minute
 
 
@@ -281,9 +282,6 @@ async def main():
     # Connect to MongoDB
     mongo_client = await connect_to_mongodb()
     db = mongo_client[DB_NAME]
-
-    #FIXME: The monitor_agent can do the initial sync of agents, can it not?
-    await sync_agents(db)
 
     # Start monitoring for changes
     monitor_task = asyncio.create_task(monitor_agents(db))

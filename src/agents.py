@@ -32,6 +32,7 @@ import asyncio
 import logging
 import os
 import json
+import signal
 import time
 import uuid
 from typing import Dict, Any, List, Optional, Type
@@ -179,6 +180,56 @@ async def get_agent_configs(db) -> List[AgentConfig]:
     return []
 
 
+async def check_and_clear_stale_lock(agent_name: str) -> bool:
+  """
+  Check if a lock exists but is stale (no heartbeat updates)
+  Returns True if lock was cleared or doesn't exist, False if lock is valid
+  """
+  if not redis_client:
+    logger.error("Redis client not initialized")
+    return False
+    
+  lock_key = f"agent_lock:{agent_name}"
+  heartbeat_key = f"agent_heartbeat:{agent_name}"
+  
+  try:
+    # Check if lock exists
+    lock_owner = await redis_client.get(lock_key)
+    if not lock_owner:
+      # No lock exists
+      return True
+        
+    # Check if heartbeat exists and is recent
+    last_heartbeat = await redis_client.get(heartbeat_key)
+    if not last_heartbeat:
+      # No heartbeat, lock is stale
+      logger.warning(f"Found stale lock for agent {agent_name} with no heartbeat, clearing")
+      await redis_client.delete(lock_key)
+      return True
+        
+    # Check heartbeat timestamp
+    try:
+      heartbeat_time = float(last_heartbeat.decode())
+      current_time = time.time()
+      if current_time - heartbeat_time > REDIS_LOCK_TIMEOUT:
+        # Heartbeat is too old, lock is stale
+        logger.warning(f"Found stale lock for agent {agent_name} with old heartbeat, clearing")
+        await redis_client.delete(lock_key)
+        await redis_client.delete(heartbeat_key)
+        return True
+    except (ValueError, TypeError):
+      # Invalid heartbeat format, consider lock stale
+      logger.warning(f"Found lock with invalid heartbeat format for agent {agent_name}, clearing")
+      await redis_client.delete(lock_key)
+      await redis_client.delete(heartbeat_key)
+      return True
+        
+    # Lock exists and has a recent heartbeat
+    return False
+  except Exception as e:
+    logger.error(f"Error checking stale lock for agent {agent_name}: {e}")
+    return False
+
 async def acquire_lock(agent_name: str) -> bool:
   """
   Acquire a distributed lock for an agent to ensure only one container runs it
@@ -190,8 +241,23 @@ async def acquire_lock(agent_name: str) -> bool:
     return False
     
   lock_key = f"agent_lock:{agent_name}"
+  heartbeat_key = f"agent_heartbeat:{agent_name}"
   
   try:
+    # Check if we already own this lock
+    lock_owner = await redis_client.get(lock_key)
+    if lock_owner and lock_owner.decode() == CONTAINER_ID:
+      logger.debug(f"Already own lock for agent {agent_name}")
+      # Update heartbeat
+      await redis_client.set(heartbeat_key, str(time.time()), ex=REDIS_LOCK_TIMEOUT*2)
+      return True
+        
+    # Check for and clear stale locks
+    lock_cleared = await check_and_clear_stale_lock(agent_name)
+    if not lock_cleared:
+      logger.debug(f"Failed to acquire lock for agent {agent_name}, owned by {lock_owner}")
+      return False
+        
     # Try to acquire the lock with our container ID
     acquired = await redis_client.set(
       lock_key, 
@@ -201,19 +267,15 @@ async def acquire_lock(agent_name: str) -> bool:
     )
     
     if acquired:
+      # Set initial heartbeat
+      await redis_client.set(heartbeat_key, str(time.time()), ex=REDIS_LOCK_TIMEOUT*2)
       logger.info(f"Acquired lock for agent {agent_name}")
       # Start a background task to refresh the lock
       asyncio.create_task(refresh_lock(agent_name))
       return True
     else:
-      # Check if we already own this lock
-      lock_owner = await redis_client.get(lock_key)
-      if lock_owner and lock_owner.decode() == CONTAINER_ID:
-        logger.debug(f"Already own lock for agent {agent_name}")
-        return True
-      else:
-        logger.debug(f"Failed to acquire lock for agent {agent_name}, owned by {lock_owner}")
-        return False
+      logger.debug(f"Race condition: Failed to acquire lock for agent {agent_name}")
+      return False
   except Exception as e:
     logger.error(f"Error acquiring lock for agent {agent_name}: {e}")
     return False
@@ -221,13 +283,17 @@ async def acquire_lock(agent_name: str) -> bool:
 async def refresh_lock(agent_name: str):
   """Periodically refresh the lock to maintain ownership"""
   lock_key = f"agent_lock:{agent_name}"
+  heartbeat_key = f"agent_heartbeat:{agent_name}"
   
   while agent_name in running_agents:
     try:
       # Only refresh if we still own the lock
       lock_owner = await redis_client.get(lock_key)
       if lock_owner and lock_owner.decode() == CONTAINER_ID:
+        # Refresh lock expiration
         await redis_client.expire(lock_key, REDIS_LOCK_TIMEOUT)
+        # Update heartbeat timestamp
+        await redis_client.set(heartbeat_key, str(time.time()), ex=REDIS_LOCK_TIMEOUT*2)
         logger.debug(f"Refreshed lock for agent {agent_name}")
       else:
         logger.warning(f"Lost lock ownership for agent {agent_name}")
@@ -246,12 +312,14 @@ async def release_lock(agent_name: str):
     return
     
   lock_key = f"agent_lock:{agent_name}"
+  heartbeat_key = f"agent_heartbeat:{agent_name}"
   
   try:
     # Only delete the lock if we own it
     lock_owner = await redis_client.get(lock_key)
     if lock_owner and lock_owner.decode() == CONTAINER_ID:
       await redis_client.delete(lock_key)
+      await redis_client.delete(heartbeat_key)
       logger.info(f"Released lock for agent {agent_name}")
   except Exception as e:
     logger.error(f"Error releasing lock for agent {agent_name}: {e}")
@@ -362,6 +430,49 @@ async def monitor_agents(db):
     await asyncio.sleep(MONITOR_SECONDS)  # Check based on environment variable
 
 
+async def cleanup_locks():
+  """Clean up all locks owned by this container on shutdown"""
+  if not redis_client:
+    return
+    
+  try:
+    # Get all lock keys
+    lock_pattern = "agent_lock:*"
+    cursor = 0
+    while True:
+      cursor, keys = await redis_client.scan(cursor, match=lock_pattern, count=100)
+      for key in keys:
+        try:
+          key_str = key.decode()
+          lock_owner = await redis_client.get(key)
+          if lock_owner and lock_owner.decode() == CONTAINER_ID:
+            agent_name = key_str.split(':')[1]
+            await release_lock(agent_name)
+        except Exception as e:
+          logger.error(f"Error cleaning up lock {key}: {e}")
+      
+      if cursor == 0:
+        break
+  except Exception as e:
+    logger.error(f"Error in cleanup_locks: {e}")
+
+async def shutdown():
+  """Gracefully shut down the application"""
+  logger.info("Shutting down XMPP agency...")
+  
+  # Stop all running agents
+  for agent_name in list(running_agents.keys()):
+    await stop_agent(agent_name)
+  
+  # Clean up any remaining locks
+  await cleanup_locks()
+  
+  # Close Redis connection
+  if redis_client:
+    await redis_client.close()
+  
+  logger.info("Shutdown complete")
+
 async def main():
   """Main entry point for the XMPP agency"""
   try:
@@ -372,17 +483,20 @@ async def main():
 
     logger.info(f"Starting XMPP agency with container ID: {CONTAINER_ID}")
 
+    # Set up signal handlers for graceful shutdown
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+      loop.add_signal_handler(sig, lambda: asyncio.create_task(shutdown()))
+
     # Start monitoring for changes
     monitor_task = asyncio.create_task(monitor_agents(db))
 
     # Keep the application running
-    await asyncio.gather(monitor_task)
+    await monitor_task
   except Exception as e:
     logger.error(f"Fatal error in XMPP agency: {e}")
   finally:
-    # Ensure all agents are stopped on shutdown
-    for agent_name in list(running_agents.keys()):
-      await stop_agent(agent_name)
+    await shutdown()
 
 
 if __name__ == "__main__":

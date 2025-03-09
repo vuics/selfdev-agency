@@ -73,6 +73,9 @@ REDIS_CONNECT_TIMEOUT = int(os.getenv("REDIS_CONNECT_TIMEOUT", "15"))  # 15s
 LOCK_TIMEOUT = int(os.getenv("LOCK_TIMEOUT", "120"))  # 2m
 LOCK_REFRESH = int(os.getenv("LOCK_REFRESH", "30"))   # 30s
 
+# Generate a unique ID for this container instance
+CONTAINER_ID = os.getenv("CONTAINER_ID", os.getenv("HOSTNAME", str(uuid.uuid4())))
+
 # Configure logging
 logging.basicConfig(
   # level=logging.INFO,
@@ -90,9 +93,6 @@ AGENT_CLASSES = {
 
 # Running agents registry
 running_agents = {}
-
-# Generate a unique ID for this container instance
-CONTAINER_ID = str(uuid.uuid4())
 
 # Redis client for distributed locks
 redis_client = None
@@ -249,7 +249,7 @@ async def acquire_lock(agent_name: str) -> bool:
     # Check for and clear stale locks
     lock_cleared = await check_and_clear_stale_lock(agent_name)
     if not lock_cleared:
-      logger.debug(f"Failed to acquire lock for agent {agent_name}, owned by {lock_owner}")
+      logger.debug(f"Lock for agent {agent_name} is owned by {lock_owner}")
       return False
 
     # Try to acquire the lock with our container ID

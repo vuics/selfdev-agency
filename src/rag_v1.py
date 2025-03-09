@@ -1,8 +1,5 @@
-#!/usr/bin/env python
 '''
-Bob Agent
-
-Bob is a RAG Agent (Pitcher)
+RagV1 Agent Archetype
 
 He is a pitching Assistant capable of answering questions about our documents
 using a large language model (LLM) involves integrating a document-processing
@@ -41,6 +38,7 @@ from base_model import init_model, init_embeddings
 from xmpp_agent import XmppAgent
 from helpers import str_to_bool
 
+logger = logging.getLogger("RagV1")
 
 load_dotenv()
 
@@ -250,7 +248,10 @@ graph = graph_builder.compile()
 print('Graph compiled')
 
 
-class BobAgent(XmppAgent):
+class RagV1(XmppAgent):
+  '''
+  RagV1 provides chat based on Retrieval-Augmented Generation
+  '''
   # def __init__(self, *, host, user, password, muc_host, join_rooms, nick, options):
   #   XmppAgent.__init__(self, host, user, password, muc_host, join_rooms, nick, options)
 

@@ -1,5 +1,5 @@
 '''
-Alice Agent
+ChatV1 Agent Archetype
 '''
 import logging
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -7,12 +7,12 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from base_model import init_model
 from xmpp_agent import XmppAgent
 
-logger = logging.getLogger("alice")
+logger = logging.getLogger("ChatV1")
 
 
-class AliceAgent(XmppAgent):
+class ChatV1(XmppAgent):
   '''
-  AliceAgent provides chats with LLMs
+  ChatV1 provides chats with LLMs
   '''
   # def __init__(self, *, host, user, password, muc_host, join_rooms, nick, options):
   #   XmppAgent.__init__(self, host, user, password, muc_host, join_rooms, nick, options)

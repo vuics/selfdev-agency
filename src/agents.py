@@ -16,12 +16,12 @@ The agency should be connected to the MongoDB and take configuration of each age
 You can add other options to the schema if needed.
 We run MongoDB with `DB_URL=mongodb://mongo.dev.local:27017/selfdev`, in which the collection `agents` exists.
 The agency should read all the documents in the 'agents' collection.
-Only run the agent if its `options.schemaVersion==='0.1'` and the agent is deployed (`options.deployed===True`).
+Only run the agent if the agent is deployed (`deployed===True`).
 
 ---
 
 Read all the instructions carefully in this comment and program accordingly with deep understanding of all details.
-Develop this agents.py as a scalable microservice running in docker containers. Parallel the load, if one container runs the agent, the other container should not run it. So the load with agents should be distributed between containers. Only one container should run the agent. All the valid agents should run. The validation is already implemented by checking: deployed===True and schemaVersion===‘0.1’ with the agent are defined as documents stored in the agents collection in the MongoDB.
+Develop this agents.py as a scalable microservice running in docker containers. Parallel the load, if one container runs the agent, the other container should not run it. So the load with agents should be distributed between containers. Only one container should run the agent. All the valid agents should run. The validation is already implemented by checking: deployed===True with the agent are defined as documents stored in the agents collection in the MongoDB.
 To ensure that only one container runs a particular agent while others remain idle, you can implement a **leader election** algorithm. Here’s how you might approach this:
    - Use a Distributed Lock. Develop a consensus system based on Redis with a locking mechanism. Every time an agent attempts to start, it tries to acquire a lock; only the container that successfully acquires the lock will run the agent, while others will remain passive.
    - Agent Coordination. When the active agent finishes its task, it should release the lock, allowing another container to take the lead.
@@ -45,11 +45,10 @@ import redis.asyncio as redis
 from box import Box
 
 # Import agent classes
-from alice import AliceAgent
-# FIXME: enable back
-# from bob import BobAgent
 from xmpp_agent import XmppAgent
-
+from chat_v1 import ChatV1
+from rag_v1 import RagV1
+from notebook_v1 import NotebookV1
 
 # Load environment variables
 load_dotenv()
@@ -85,10 +84,10 @@ logging.basicConfig(
 logger = logging.getLogger("agents")
 
 # Map of agent class names to their actual classes
-AGENT_CLASSES = {
-  "AliceAgent": AliceAgent,
-  # FIXME: enable back
-  # "BobAgent": BobAgent,
+ARCHETYPE_CLASSES = {
+  "chat-v1.0": ChatV1,
+  "rag-v1.0": RagV1,
+  "notebook-v1.0": NotebookV1,
 }
 
 # Running agents registry
@@ -105,19 +104,17 @@ class AgentConfig:
     self.user_id = str(doc.get('userId'))
 
     self.deployed = doc.get('deployed', False)
+    self.archetype = doc.get('archetype', None)
     self.options = Box(doc.get('options', {}))
-    self.schemaVersion = self.options.schemaVersion
     self.name = self.options.name
-    self.protoAgent = self.options.protoAgent
     self.joinRooms = self.options.joinRooms
 
   def is_valid(self) -> bool:
     """Check if the agent configuration is valid and should be deployed"""
-    return bool(self.deployed and self.schemaVersion == '0.1' and
-                self.name and self.protoAgent in AGENT_CLASSES)
+    return bool(self.deployed and self.name and self.archetype in ARCHETYPE_CLASSES)
 
   def __str__(self) -> str:
-    return f"""{self.protoAgent}({self.name}, {self.deployed and 'deployed' or 'undeployed'}, {self.is_valid() and 'valid' or 'invalid'}) in {self.joinRooms}"""
+    return f"""{self.archetype}({self.name}, {self.deployed and 'deployed' or 'undeployed'}, {self.is_valid() and 'valid' or 'invalid'}) in {self.joinRooms}"""
 
   def __repr__(self) -> str:
     return self.__str__()
@@ -331,11 +328,11 @@ async def start_agent(config: AgentConfig) -> Optional[XmppAgent]:
     # Try to acquire a distributed lock for this agent
     lock_acquired = await acquire_lock(config.name)
     if not lock_acquired:
-      logger.info(f"Agent {config.name} is already running in another container")
+      logger.info(f"Agent {config.archetype}({config.name}) is already running in another container")
       return None
 
     # Get the appropriate agent class
-    agent_class: Type[XmppAgent] = AGENT_CLASSES[config.protoAgent]
+    agent_class: Type[XmppAgent] = ARCHETYPE_CLASSES[config.archetype]
 
     # Create and start the agent
     agent = agent_class(
@@ -349,7 +346,7 @@ async def start_agent(config: AgentConfig) -> Optional[XmppAgent]:
     )
     agent.start()
 
-    logger.info(f"Started agent: {config.name} ({config.protoAgent})")
+    logger.info(f"Started agent: {config.archetype} ({config.name})")
     return agent
   except Exception as e:
     # Release the lock if we failed to start the agent

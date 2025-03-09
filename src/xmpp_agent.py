@@ -1,9 +1,21 @@
 '''
 Base XMPP Agent
 '''
+import os
+import logging
 import ssl
+
 from slixmpp import ClientXMPP
 import httpx
+from dotenv import load_dotenv
+
+from helpers import str_to_bool
+
+logger = logging.getLogger("XmppAgent")
+
+load_dotenv()
+
+ALLOW_INSECURE = str_to_bool(os.getenv("ALLOW_INSECURE", 'False'))
 
 
 class XmppAgent(ClientXMPP):
@@ -25,17 +37,18 @@ class XmppAgent(ClientXMPP):
     self.join_room_jids = [f"{room}@{muc_host}" for room in self.join_rooms]
     self.options = options
 
-    # Allow insecure certificates
-    #
-    # Configure SSL context
-    self.ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    self.ssl_context.check_hostname = False
-    self.ssl_context.verify_mode = ssl.CERT_NONE
-    # Enable all available protocols
-    self.ssl_context.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
-    self.ssl_context.maximum_version = ssl.TLSVersion.MAXIMUM_SUPPORTED
-    # Register event handlers
-    self.add_event_handler('ssl_invalid_cert', self.ssl_invalid_cert)
+    if ALLOW_INSECURE:
+      # Allow insecure certificates
+      #
+      # Configure SSL context
+      self.ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+      self.ssl_context.check_hostname = False
+      self.ssl_context.verify_mode = ssl.CERT_NONE
+      # Enable all available protocols
+      self.ssl_context.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
+      self.ssl_context.maximum_version = ssl.TLSVersion.MAXIMUM_SUPPORTED
+      # Register event handlers
+      self.add_event_handler('ssl_invalid_cert', self.ssl_invalid_cert)
 
     self.add_event_handler('failed_auth', self.failed_auth)
 
@@ -82,26 +95,23 @@ class XmppAgent(ClientXMPP):
     pass
 
   def ssl_invalid_cert(self, pem_cert):
-    print("Warning: Invalid SSL certificate received")
+    logger.warning("Warning: Invalid SSL certificate received")
     return True
 
   async def failed_auth(self, event):
-    print(f'{self.jid} Failed auth:', event)
+    logger.debug(f'{self.jid} Failed auth: {event}')
     condition = event.get_condition()
     text = event._get_sub_text('text')
-    print(f'{self.jid} Failed auth> condition:', condition, ', text:', text)
-    # elem = event.xml.find('{urn:ietf:params:xml:ns:xmpp-sasl}text')
-    # print('elem.text:', elem.text)
+    logger.debug(f'{self.jid} Failed auth> condition: {condition}, text: {text}')
     if text == "Unable to authorize you with the authentication credentials you've sent.":
-      print('I can register the user')
+      logger.debug('I can register the user')
       registered = await self.register_user()
       if registered:
-        print('User registered. Reconnect')
+        logger.debug('User registered. Reconnect')
         self.connect()
 
   async def register_user(self):
-    print('Register a new XMPP user with credentials> user:', self.user,
-          ', password:', self.password)
+    logger.debug(f'Register a new XMPP user with credentials> user: {self.user}, password: {self.password}')
     try:
       async with httpx.AsyncClient() as client:
         response = await client.get(
@@ -113,11 +123,11 @@ class XmppAgent(ClientXMPP):
           },
           headers={"Content-Type": "application/json"}
         )
-      print('XMPP Registration Status Code:', response.status_code)
-      print('XMPP Registration Data:', response.text)
+      logger.debug(f'XMPP Registration Status Code: {response.status_code}')
+      logger.debug(f'XMPP Registration Data: {response.text}')
       return True
-    except Exception as err:
-      print('XMPP registration error:', err)
+    except Exception as e:
+      logger.debug(f'XMPP registration error: {e}')
       return False
 
   async def session_start(self, event):
@@ -135,13 +145,13 @@ class XmppAgent(ClientXMPP):
     """
     await self.get_roster()
     self.send_presence()
-    print('Session started')
+    logger.debug('Session started')
     for room_jid in self.join_room_jids:
-      print('  Join room> jid:', room_jid, ', nick:', self.nick)
+      logger.debug(f'  Join room> jid: {room_jid},  nick: {self.nick}')
       self.plugin['xep_0045'].join_muc(room_jid, self.nick)
 
   async def chat(self, *, prompt):
-    print("WARNING: XmppAgent.chat() should be defined in child class")
+    logger.warning("WARNING: XmppAgent.chat() should be defined in child class")
 
   async def message(self, msg):
     """
@@ -155,11 +165,11 @@ class XmppAgent(ClientXMPP):
            for stanza objects and the Message stanza to see
            how it may be used.
     """
-    # print('msg:', msg)
-    # print('msg type:', msg['type'])
-    # print('msg body:', msg['body'])
-    # print('msg mucnick:', msg['mucnick'])
-    # print('msg from:', msg['from'])
+    # logger.debug(f'msg: {msg}')
+    # logger.debug(f'msg type: {msg['type']}')
+    # logger.debug(f'msg body: {msg['body']}')
+    # logger.debug(f'msg mucnick: {msg['mucnick']}')
+    # logger.debug(f'msg from: {msg['from']}')
     if msg['type'] in ('chat', 'normal'):
       try:
         content = await self.chat(prompt=msg['body'])
@@ -168,7 +178,7 @@ class XmppAgent(ClientXMPP):
                           mbody=content,
                           mtype='chat')
       except Exception as err:
-        print('message error:', err)
+        logger.debug(f'message error: {err}')
 
   async def groupchat_message(self, msg):
     """
@@ -192,11 +202,11 @@ class XmppAgent(ClientXMPP):
            for stanza objects and the Message stanza to see
            how it may be used.
     """
-    # print('msg:', msg)
-    # print('msg type:', msg['type'])
-    # print('msg body:', msg['body'])
-    # print('msg mucnick:', msg['mucnick'])
-    # print('msg from:', msg['from'])
+    # logger.debug(f'msg: {msg}')
+    # logger.debug(f'msg type: {msg['type']}')
+    # logger.debug(f'msg body: {msg['body']}')
+    # logger.debug(f'msg mucnick: {msg['mucnick']}')
+    # logger.debug(f'msg from: {msg['from']}')
     if msg['mucnick'] != self.nick and self.nick in msg['body']:
       try:
         content = await self.chat(prompt=msg['body'])
@@ -204,7 +214,7 @@ class XmppAgent(ClientXMPP):
                           mbody=content,
                           mtype='groupchat')
       except Exception as err:
-        print('groupchat_message error:', err)
+        logger.debug('groupchat_message error:', err)
     # elif msg['mucnick'] != self.nick:
     #   self.send_message(mto=msg['from'].bare,
     #                     mbody=f"Echo: {msg['body']}",
@@ -222,25 +232,26 @@ class XmppAgent(ClientXMPP):
             documentation for the Presence stanza
             to see how else it may be used.
     """
-    # print('presense:', presence)
+    # logger.debug(f'presense: {presence}')
     if presence['muc']['nick'] != self.nick:
       self.send_message(mto=presence['from'].bare,
-                        mbody="Hello, %s %s" % (presence['muc']['role'],
-                        presence['muc']['nick']),
+                        mbody="Hello!",
+                        # NOTE: agents start talking if mention them
+                        # mbody="Hello, %s %s" % (presence['muc']['role'], presence['muc']['nick']),
                         mtype='groupchat')
 
   async def groupchat_direct_invite(self, msg):
     """
     Handler for direct MUC invitations.
     """
-    print('Groupchat Invite msg:', msg)
-    print(f"  Inviter: {msg['from']}")
-    print(f"  Invitee: {msg['to']}")
+    logger.debug(f'Groupchat Invite msg: {msg}')
+    logger.debug(f"  Inviter: {msg['from']}")
+    logger.debug(f"  Invitee: {msg['to']}")
     invite = msg.xml.find('.//{jabber:x:conference}x')
     room_jid = invite.get('jid')
-    print(f"  Room: {room_jid}")
-    print(f"  Reason: {invite.get('reason')}")
+    logger.debug(f"  Room: {room_jid}")
+    logger.debug(f"  Reason: {invite.get('reason')}")
 
-    print('Joining the room> room_jid:', room_jid)
+    logger.debug(f'Joining the room> room_jid: {room_jid}')
     self.add_event_handler("muc::%s::got_online" % room_jid, self.muc_online)
     self.plugin['xep_0045'].join_muc(room_jid, self.nick)

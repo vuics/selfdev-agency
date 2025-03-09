@@ -13,29 +13,13 @@ class NotebookV1(XmppAgent):
   '''
   NotebookV1 provides exectution of Jupyter Notebooks and their outputs
   '''
-  # def __init__(self, *, host, user, password, muc_host, join_rooms, nick, options):
-  #   XmppAgent.__init__(self, host, user, password, muc_host, join_rooms, nick, options)
-
-  def start(self):
+  async def start(self):
     pass
-    # try:
-    #   self.model = init_model(model_provider=self.options.model.provider,
-    #                           model_name=self.options.model.name)
-    #   logger.debug(f"self.model: {self.model}")
-    # except Exception as e:
-    #   print("Error initializing model:", e)
 
   async def chat(self, *, prompt):
     try:
-      print('prompt:', prompt)
-      # logger.debug(f'self.options: {self.options}')
-      # logger.debug(f'config.systemMessage: {self.options.systemMessage}')
-      # ai_msg = await self.model.ainvoke([
-      #   SystemMessage(self.options.systemMessage),
-      #   HumanMessage(prompt)
-      # ])
-      # print("ai_msg:", ai_msg.content)
+      logger.debug(f"prompt: {prompt}")
       return f'Running notebook with prompt: {prompt}'
     except Exception as e:
-      print('chat error:', e)
+      logger.error(f"Chat error: {e}")
       return f'Error: {str(e)}'

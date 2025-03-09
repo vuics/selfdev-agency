@@ -15,7 +15,8 @@ logger = logging.getLogger("XmppAgent")
 
 load_dotenv()
 
-ALLOW_INSECURE = str_to_bool(os.getenv("ALLOW_INSECURE", 'False'))
+ALLOW_INSECURE = str_to_bool(os.getenv("ALLOW_INSECURE", "False"))
+REGISTER_PORT = int(os.getenv("REGISTER_PORT", "8387"))
 
 
 class XmppAgent(ClientXMPP):
@@ -91,9 +92,6 @@ class XmppAgent(ClientXMPP):
 
     self.connect()
 
-  def start(self):
-    pass
-
   def ssl_invalid_cert(self, pem_cert):
     logger.warning("Warning: Invalid SSL certificate received")
     return True
@@ -111,11 +109,11 @@ class XmppAgent(ClientXMPP):
         self.connect()
 
   async def register_user(self):
-    logger.debug(f'Register a new XMPP user with credentials> user: {self.user}, password: {self.password}')
+    logger.info(f'Register a new XMPP user with credentials> user: {self.user}, password: {self.password}')
     try:
       async with httpx.AsyncClient() as client:
         response = await client.get(
-          f"http://{self.host}:8387/register",
+          f"http://{self.host}:{REGISTER_PORT}/register",
           params={
             "user": self.user,
             "password": self.password,
@@ -127,7 +125,7 @@ class XmppAgent(ClientXMPP):
       logger.debug(f'XMPP Registration Data: {response.text}')
       return True
     except Exception as e:
-      logger.debug(f'XMPP registration error: {e}')
+      logger.error(f'XMPP registration error: {e}')
       return False
 
   async def session_start(self, event):
@@ -147,11 +145,15 @@ class XmppAgent(ClientXMPP):
     self.send_presence()
     logger.debug('Session started')
     for room_jid in self.join_room_jids:
-      logger.debug(f'  Join room> jid: {room_jid},  nick: {self.nick}')
+      logger.info(f'  Join room> jid: {room_jid},  nick: {self.nick}')
       self.plugin['xep_0045'].join_muc(room_jid, self.nick)
+
+  async def start(self):
+    logger.warning("WARNING: XmppAgent.start() should be defined in child class")
 
   async def chat(self, *, prompt):
     logger.warning("WARNING: XmppAgent.chat() should be defined in child class")
+    return '(none)'
 
   async def message(self, msg):
     """
@@ -178,7 +180,7 @@ class XmppAgent(ClientXMPP):
                           mbody=content,
                           mtype='chat')
       except Exception as err:
-        logger.debug(f'message error: {err}')
+        logger.error(f'message error: {err}')
 
   async def groupchat_message(self, msg):
     """
@@ -214,7 +216,7 @@ class XmppAgent(ClientXMPP):
                           mbody=content,
                           mtype='groupchat')
       except Exception as err:
-        logger.debug('groupchat_message error:', err)
+        logger.error('groupchat_message error:', err)
     # elif msg['mucnick'] != self.nick:
     #   self.send_message(mto=msg['from'].bare,
     #                     mbody=f"Echo: {msg['body']}",
@@ -252,6 +254,6 @@ class XmppAgent(ClientXMPP):
     logger.debug(f"  Room: {room_jid}")
     logger.debug(f"  Reason: {invite.get('reason')}")
 
-    logger.debug(f'Joining the room> room_jid: {room_jid}')
+    logger.info(f'Joining the room> room_jid: {room_jid}')
     self.add_event_handler("muc::%s::got_online" % room_jid, self.muc_online)
     self.plugin['xep_0045'].join_muc(room_jid, self.nick)

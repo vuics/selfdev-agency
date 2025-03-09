@@ -75,6 +75,9 @@ LOCK_REFRESH = int(os.getenv("LOCK_REFRESH", "30"))   # 30s
 # Generate a unique ID for this container instance
 CONTAINER_ID = os.getenv("CONTAINER_ID", os.getenv("HOSTNAME", str(uuid.uuid4())))
 
+FILTER_ARCHETYPES = json.loads(os.getenv('FILTER_ARCHETYPES', '[ ]'))
+
+
 # Configure logging
 logging.basicConfig(
   # level=logging.INFO,
@@ -111,7 +114,9 @@ class AgentConfig:
 
   def is_valid(self) -> bool:
     """Check if the agent configuration is valid and should be deployed"""
-    return bool(self.deployed and self.name and self.archetype in ARCHETYPE_CLASSES)
+    return bool(self.deployed and self.name and
+                self.archetype in ARCHETYPE_CLASSES and
+                (True if not FILTER_ARCHETYPES else self.archetype in FILTER_ARCHETYPES))
 
   def __str__(self) -> str:
     return f"""{self.archetype}({self.name}, {self.deployed and 'deployed' or 'undeployed'}, {self.is_valid() and 'valid' or 'invalid'}) in {self.joinRooms}"""
@@ -344,7 +349,7 @@ async def start_agent(config: AgentConfig) -> Optional[XmppAgent]:
       nick=config.name,  # Use agent name as XMPP nickname
       options=config.options,
     )
-    agent.start()
+    asyncio.create_task(agent.start())
 
     logger.info(f"Started agent: {config.archetype} ({config.name})")
     return agent

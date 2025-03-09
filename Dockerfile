@@ -38,7 +38,7 @@ RUN pip install .
 
 COPY src/*.py ./src/
 COPY README.md ./
-COPY input/* ./input/
+COPY ./input/ ./input/
 
 # Run the XMPP agency by default
 CMD ["python", "-m", "src.xmpp_agency"]

@@ -140,10 +140,10 @@ class XmppAgent(ClientXMPP):
       print('  Join room> jid:', room_jid, ', nick:', self.nick)
       self.plugin['xep_0045'].join_muc(room_jid, self.nick)
 
-  def chat(self, prompt):
+  async def chat(self, *, prompt):
     print("WARNING: XmppAgent.chat() should be defined in child class")
 
-  def message(self, msg):
+  async def message(self, msg):
     """
     Process incoming message stanzas. Be aware that this also
     includes MUC messages and error messages. It is usually
@@ -162,7 +162,7 @@ class XmppAgent(ClientXMPP):
     # print('msg from:', msg['from'])
     if msg['type'] in ('chat', 'normal'):
       try:
-        content = self.chat(msg['body'])
+        content = await self.chat(prompt=msg['body'])
         # msg.reply(content).send()
         self.send_message(mto=msg['from'].bare,
                           mbody=content,
@@ -170,7 +170,7 @@ class XmppAgent(ClientXMPP):
       except Exception as err:
         print('message error:', err)
 
-  def groupchat_message(self, msg):
+  async def groupchat_message(self, msg):
     """
     Process incoming message stanzas from any chat room. Be aware
     that if you also have any handlers for the 'message' event,
@@ -199,7 +199,7 @@ class XmppAgent(ClientXMPP):
     # print('msg from:', msg['from'])
     if msg['mucnick'] != self.nick and self.nick in msg['body']:
       try:
-        content = self.chat(msg['body'])
+        content = await self.chat(prompt=msg['body'])
         self.send_message(mto=msg['from'].bare,
                           mbody=content,
                           mtype='groupchat')

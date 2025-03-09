@@ -25,12 +25,12 @@ class AliceAgent(XmppAgent):
     except Exception as e:
       print("Error initializing model:", e)
 
-  def chat(self, prompt):
+  async def chat(self, *, prompt):
     try:
       print('prompt:', prompt)
       logger.debug(f'self.options: {self.options}')
       logger.debug(f'config.systemMessage: {self.options.systemMessage}')
-      ai_msg = self.model.invoke([
+      ai_msg = await self.model.ainvoke([
         SystemMessage(self.options.systemMessage),
         HumanMessage(prompt)
       ])

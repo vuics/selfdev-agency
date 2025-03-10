@@ -65,6 +65,11 @@ https://codeberg.org/poezio/slixmpp/archive/slix-1.9.0.tar.gz
 motor==3.3.2
 pymongo==4.6.2
 
+papermill[all]==2.6.0
+scrapbook[all]==0.5.0
+nbconvert==7.16.6
+nbformat==5.10.4
+
 # llama-cpp-python==0.3.7
 # transformers==4.48.3
 # bitsandbytes==0.45.2

@@ -26,7 +26,7 @@ class ChatV1(XmppAgent):
     try:
       logger.debug(f"prompt: {prompt}")
       logger.debug(f'self.options: {self.options}')
-      logger.debug(f'config.systemMessage: {self.options.systemMessage}')
+      logger.debug(f'self.options.systemMessage: {self.options.systemMessage}')
       ai_msg = await self.model.ainvoke([
         SystemMessage(self.options.systemMessage),
         HumanMessage(prompt)

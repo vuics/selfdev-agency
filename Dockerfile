@@ -40,5 +40,9 @@ COPY src/*.py ./src/
 COPY README.md ./
 COPY ./input/ ./input/
 
+# TODO: move up?
+RUN pip install --upgrade pip ipython ipykernel
+RUN python -m ipykernel install --user --name python3
+
 # Run the XMPP agency by default
 CMD ["python", "-m", "src.xmpp_agency"]

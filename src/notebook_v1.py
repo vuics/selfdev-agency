@@ -1,6 +1,3 @@
-'''
-NotebookV1 Agent Archetype
-'''
 import os
 import logging
 import uuid
@@ -29,7 +26,7 @@ class NotebookV1(XmppAgent):
     pass
 
   async def run_papermill(self, *, notebook_path, parameters=None,
-                          kernel_name='python3'):
+                          kernel_name='python3', reply_func=None):
     """
     Runs a Jupyter notebook with papermill and nbconvert Python APIs
     asynchronously and captures print outputs
@@ -78,21 +75,43 @@ class NotebookV1(XmppAgent):
         lambda: python_exporter.from_notebook_node(notebook)
       )
 
-    # TODO: this agent only outputs the message back to the chat only when the notebook finished executing. How to develop it so it sends updates to the chat as soon as it gets new output from the notebooks in a similar way how it outputs logs?
+    class StreamingOutput(io.StringIO):
+      def __init__(self, send_update, loop):
+        super().__init__()
+        self.send_update = send_update
+        self.loop = loop
+        self.buffer = ""
 
-    # Execute the Python code in a separate thread to avoid blocking
+      def write(self, s):
+        self.buffer += s
+        asyncio.run_coroutine_threadsafe(self.send_update(s), self.loop)
+        # if "\n" in self.buffer:
+        #     lines = self.buffer.split("\n")
+        #     for line in lines[:-1]:
+        #         # Schedule update for every complete line (update the chat with new output)
+        #         asyncio.run_coroutine_threadsafe(self.send_update(line), self.loop)
+        #     self.buffer = lines[-1]
+        return len(s)
+
+    async def send_update(content):
+      # Adjust this method if you have a specific method to send chat updates.
+      # For example, if there's a self.send_message method, you could call: await self.send_message(content)
+      # logger.debug(f"!!!!!!!!    Update: {content}")
+      if reply_func:
+        reply_func(content)
+
     def execute_and_capture():
-      # Redirect stdout to capture print outputs
       old_stdout = sys.stdout
-      new_stdout = io.StringIO()
+      new_stdout = StreamingOutput(send_update, loop)
       sys.stdout = new_stdout
-
       logger.debug(f'python_code: {python_code}')
       try:
         exec(python_code)
-        return new_stdout.getvalue()
+        # Flush any remaining output in the buffer as one final update:
+        # if new_stdout.buffer:
+        #   asyncio.run_coroutine_threadsafe(send_update(new_stdout.buffer), loop)
+        # return new_stdout.getvalue() + new_stdout.buffer
       finally:
-        # Restore stdout
         sys.stdout = old_stdout
 
     with concurrent.futures.ThreadPoolExecutor() as pool:
@@ -105,9 +124,12 @@ class NotebookV1(XmppAgent):
     except Exception as e:
       logger.warning(f'Clean up the temporary file {temp_output} error: {e}')
 
-    return output
+    # NOTE: output contains all the text
+    #       It can be an option: return the whole text at the end
+    # return output
+    return ""
 
-  async def chat(self, *, prompt):
+  async def chat(self, *, prompt, reply_func=None):
     try:
       logger.debug(f"prompt: {prompt}")
       logger.debug(f'self.options: {self.options}')
@@ -128,6 +150,7 @@ class NotebookV1(XmppAgent):
         notebook_path=self.options.notebook.filePath,
         parameters=parameters,
         kernel_name=self.options.notebook.kernelName if hasattr(self.options.notebook, 'kernelName') else None,
+        reply_func=reply_func,
       )
 
       # TODO: Integrate with Scrapbook?

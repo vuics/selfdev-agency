@@ -174,11 +174,13 @@ class XmppAgent(ClientXMPP):
     # logger.debug(f'msg from: {msg['from']}')
     if msg['type'] in ('chat', 'normal'):
       try:
-        content = await self.chat(prompt=msg['body'])
-        # msg.reply(content).send()
-        self.send_message(mto=msg['from'].bare,
-                          mbody=content,
-                          mtype='chat')
+        def reply_func(content):
+          self.send_message(mto=msg['from'].bare,
+                            mbody=content,
+                            mtype='chat')
+
+        content = await self.chat(prompt=msg['body'], reply_func=reply_func)
+        reply_func(content)
       except Exception as err:
         logger.error(f'message error: {err}')
 
@@ -209,12 +211,16 @@ class XmppAgent(ClientXMPP):
     # logger.debug(f'msg body: {msg['body']}')
     # logger.debug(f'msg mucnick: {msg['mucnick']}')
     # logger.debug(f'msg from: {msg['from']}')
+
     if msg['mucnick'] != self.nick and self.nick in msg['body']:
       try:
-        content = await self.chat(prompt=msg['body'])
-        self.send_message(mto=msg['from'].bare,
-                          mbody=content,
-                          mtype='groupchat')
+        def reply_func(content):
+          self.send_message(mto=msg['from'].bare,
+                            mbody=content,
+                            mtype='groupchat')
+
+        content = await self.chat(prompt=msg['body'], reply_func=reply_func)
+        reply_func(content)
       except Exception as err:
         logger.error('groupchat_message error:', err)
     # elif msg['mucnick'] != self.nick:

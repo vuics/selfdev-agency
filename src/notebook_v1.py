@@ -78,6 +78,8 @@ class NotebookV1(XmppAgent):
         lambda: python_exporter.from_notebook_node(notebook)
       )
 
+    # TODO: this agent only outputs the message back to the chat only when the notebook finished executing. How to develop it so it sends updates to the chat as soon as it gets new output from the notebooks in a similar way how it outputs logs?
+
     # Execute the Python code in a separate thread to avoid blocking
     def execute_and_capture():
       # Redirect stdout to capture print outputs

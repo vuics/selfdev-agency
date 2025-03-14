@@ -44,5 +44,7 @@ COPY ./input/ ./input/
 RUN pip install --upgrade pip ipython ipykernel
 RUN python -m ipykernel install --user --name python3
 
+ENV PYTHONPATH="${PYTHONPATH}:/opt/app/input/selfdev-notebooks/"
+
 # Run the XMPP agency by default
 CMD ["python", "-m", "src.xmpp_agency"]

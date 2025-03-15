@@ -7,7 +7,9 @@ RUN apt-get update --yes && \
     apt-get upgrade --yes && \
     apt-get install --yes --no-install-recommends python3-dev \
             curl ca-certificates gcc g++ make \
-            npm wget libmagic1 chromium chromium-driver && \
+            npm wget libmagic1 chromium chromium-driver \
+            libreoffice \
+            && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Rust using rustup
@@ -24,6 +26,8 @@ RUN npm i -g nodemon
 RUN pip install --upgrade pip && \
     pip install nltk==3.9.1 && \
     python -m nltk.downloader punkt punkt_tab averaged_perceptron_tagger_eng
+RUN pip install --upgrade pip ipython ipykernel
+RUN python -m ipykernel install --user --name python3
 
 WORKDIR /opt/app/
 
@@ -39,10 +43,6 @@ RUN pip install .
 COPY src/*.py ./src/
 COPY README.md ./
 COPY ./input/ ./input/
-
-# TODO: move up?
-RUN pip install --upgrade pip ipython ipykernel
-RUN python -m ipykernel install --user --name python3
 
 ENV PYTHONPATH="${PYTHONPATH}:/opt/app/input/selfdev-notebooks/"
 

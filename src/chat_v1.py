@@ -22,7 +22,7 @@ class ChatV1(XmppAgent):
     except Exception as e:
       logger.error(f"Error initializing model: {e}")
 
-  async def chat(self, *, prompt):
+  async def chat(self, *, prompt, reply_func=None):
     try:
       logger.debug(f"prompt: {prompt}")
       logger.debug(f'self.options: {self.options}')

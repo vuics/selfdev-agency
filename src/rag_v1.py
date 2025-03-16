@@ -224,7 +224,7 @@ class RagV1(XmppAgent):
     self.graph = graph_builder.compile()
     logger.info('Graph compiled')
 
-  async def chat(self, *, prompt):
+  async def chat(self, *, prompt, reply_func=None):
     if not hasattr(self, 'graph'):
       return "I am not ready while loading documents."
 

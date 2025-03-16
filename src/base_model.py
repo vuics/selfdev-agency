@@ -13,6 +13,7 @@ from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 from langchain_ai21 import ChatAI21
 from langchain_upstage import ChatUpstage
 from langchain_xai import ChatXAI
+from langchain_community.chat_models import ChatPerplexity
 # from langchain_community.chat_models import ChatLlamaCpp
 
 from langchain_openai import OpenAIEmbeddings
@@ -182,6 +183,14 @@ provider_list = {
     "local": False,
     "multimodal": False,
   },
+  "perplexity": {
+    "requires_envs": ["PPLX_API_KEY"],
+    "tool_calling": True,
+    "structure_output": True,
+    "json_mode": True,
+    "local": False,
+    "multimodal": True,
+  },
   # "llamacpp": {
   #   "requires_envs": [],
   #   "tool_calling": True,
@@ -255,6 +264,11 @@ def init_model(*, model_provider, model_name):
       max_tokens=None,
       timeout=None,
       max_retries=2,
+    )
+  elif model_provider == "perplexity":
+    model = ChatPerplexity(
+      model=model_name,
+      temperature=0,
     )
   # elif model_provider == "llamacpp":
   #   model = ChatLlamaCpp(

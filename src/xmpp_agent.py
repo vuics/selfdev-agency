@@ -151,7 +151,7 @@ class XmppAgent(ClientXMPP):
   async def start(self):
     logger.warning("WARNING: XmppAgent.start() should be defined in child class")
 
-  async def chat(self, *, prompt):
+  async def chat(self, *, prompt, reply_func=None):
     logger.warning("WARNING: XmppAgent.chat() should be defined in child class")
     return '(none)'
 

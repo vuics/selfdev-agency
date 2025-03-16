@@ -49,6 +49,7 @@ from xmpp_agent import XmppAgent
 from chat_v1 import ChatV1
 from rag_v1 import RagV1
 from notebook_v1 import NotebookV1
+from command_v1 import CommandV1
 
 # Load environment variables
 load_dotenv()
@@ -91,6 +92,7 @@ ARCHETYPE_CLASSES = {
   "chat-v1.0": ChatV1,
   "rag-v1.0": RagV1,
   "notebook-v1.0": NotebookV1,
+  "command-v1.0": CommandV1,
 }
 
 # Running agents registry
@@ -119,7 +121,7 @@ class AgentConfig:
                 (True if not FILTER_ARCHETYPES else self.archetype in FILTER_ARCHETYPES))
 
   def __str__(self) -> str:
-    return f"""{self.archetype}({self.name}, {self.deployed and 'deployed' or 'undeployed'}, {self.is_valid() and 'valid' or 'invalid'}) in {self.joinRooms}"""
+    return f"""{self.name}({self.archetype}, {self.deployed and 'deployed' or 'undeployed'}, {self.is_valid() and 'valid' or 'invalid'}) in {self.joinRooms}"""
 
   def __repr__(self) -> str:
     return self.__str__()

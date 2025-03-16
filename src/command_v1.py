@@ -1,62 +1,115 @@
+import logging
 import asyncio
 
+from xmpp_agent import XmppAgent
+
+logger = logging.getLogger("CommandV1")
+
 class AsyncShellExecutor:
-  def __init__(self, shell='/bin/sh'):
+  def __init__(self, *, execute='/bin/sh', shell=False):
+    self.execute = execute
     self.shell = shell
     self.process = None
+    self.reading_tasks = []  # Track reading tasks to cancel them before new command
 
   async def start_shell(self):
     """Starts an interactive shell session."""
-    self.process = await asyncio.create_subprocess_exec(
-      self.shell,
-      stdin=asyncio.subprocess.PIPE,
-      stdout=asyncio.subprocess.PIPE,
-      stderr=asyncio.subprocess.PIPE
-    )
+    if self.process is None:
+      logger.debug(f"start_execute execute: {self.execute}")
+      if self.shell:
+        self.process = await asyncio.create_subprocess_shell(
+          self.execute,
+          stdin=asyncio.subprocess.PIPE,
+          stdout=asyncio.subprocess.PIPE,
+          stderr=asyncio.subprocess.PIPE
+        )
+      else:
+        self.process = await asyncio.create_subprocess_exec(
+          self.execute,
+          stdin=asyncio.subprocess.PIPE,
+          stdout=asyncio.subprocess.PIPE,
+          stderr=asyncio.subprocess.PIPE
+        )
+      # logger.debug(f'process: {self.process}')
 
   async def send_command(self, command):
     """Sends a command to the shell process."""
     if self.process and self.process.stdin:
+      logger.debug(f"send_command: {command}")
+
+      # Cancel any previous reading tasks before running new command
+      for task in self.reading_tasks:
+        task.cancel()
+
+      self.reading_tasks.clear()  # Reset task tracking
+
       self.process.stdin.write(command.encode() + b'\n')
       await self.process.stdin.drain()
     else:
-      print("Shell is not running.")
+      logger.error("Shell is not running.")
 
-  async def read_output(self):
-    """Reads output from the shell asynchronously."""
-    if self.process:
-      while True:
-        line = await self.process.stdout.readline()
-        if not line:
-          break
-        print(line.decode(), end='')
-    else:
-      print("Shell is not running.")
-
-  async def read_errors(self):
-    """Reads error output from the shell asynchronously."""
-    if self.process:
-      while True:
-        line = await self.process.stderr.readline()
-        if not line:
-          break
-        print(line.decode(), end='')
-    else:
-      print("Shell is not running.")
-
-  async def run(self):
-    """Runs the interactive shell and reads input/output."""
-    await self.start_shell()
-    asyncio.create_task(self.read_output())
-    asyncio.create_task(self.read_errors())
-
+  async def read_continuous_output(self, stream, reply_func):
+    """Continuously reads and sends output until no more data arrives."""
     while True:
-      command = await asyncio.get_event_loop().run_in_executor(None, input, "$ ")
-      if command.lower() in ('exit', 'quit'):
-        self.process.terminate()
-        break
-      await self.send_command(command)
+      try:
+        # Try reading output with a short timeout to avoid blocking indefinitely
+        line = await asyncio.wait_for(stream.readline(), timeout=0.1)
+        if not line:
+          break  # No more data, exit the loop
 
-if __name__ == "__main__":
-  executor = AsyncShellExecutor()
-  asyncio.run(executor.run())
+        decoded_line = line.decode().strip()
+        logger.debug(f'read_output: {decoded_line}')
+
+        if reply_func:
+          reply_func(decoded_line)  # Send real-time output to XMPP
+
+      except asyncio.TimeoutError:
+        continue  # No output received yet, keep checking
+      except asyncio.CancelledError:
+        break  # Exit the loop if task is cancelled
+
+  async def run_prompt(self, prompt, reply_func):
+    """Executes a command and continuously streams stdout & stderr."""
+    if not self.process:
+      await self.start_shell()  # Ensure the shell is running
+
+    await self.send_command(prompt)
+
+    # Start continuous reading loops for both stdout and stderr
+    stdout_task = asyncio.create_task(self.read_continuous_output(self.process.stdout, reply_func))
+    stderr_task = asyncio.create_task(self.read_continuous_output(self.process.stderr, reply_func))
+
+    # Track these tasks so they can be canceled if a new command arrives
+    self.reading_tasks.extend([stdout_task, stderr_task])
+
+    # Wait for both reading loops to finish
+    await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)  # Avoid exceptions stopping execution
+
+
+class CommandV1(XmppAgent):
+  '''
+  CommandV1 is a command executor that attaches input and output
+  (stdin, stdout, stderr) so that a user can input programmatically by typing
+  and it can see the shell output. It is possible to change a command
+  and execute another command or script.
+  '''
+  async def start(self):
+    self.executor = AsyncShellExecutor(
+      execute=self.options.command.execute,
+      shell=self.options.command.shell,
+    )
+
+  async def chat(self, *, prompt, reply_func=None):
+    try:
+      logger.debug(f"prompt: {prompt}")
+      logger.debug(f'self.options: {self.options}')
+      logger.debug(f"self.options.command: {self.options.command}")
+
+      edited_prompt = prompt.replace(self.options.name, "").strip()
+      output = await self.executor.run_prompt(edited_prompt, reply_func)
+
+      logger.debug(f"output: {output}")
+      return output
+    except Exception as e:
+      logger.error(f"Chat error: {e}")
+      return f'Error: {str(e)}'

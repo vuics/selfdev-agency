@@ -70,6 +70,10 @@ class AsyncShellExecutor:
 
   async def run_prompt(self, prompt, reply_func):
     """Executes a command and continuously streams stdout & stderr."""
+    if self.process and self.process.returncode is not None:
+      logger.warning(f"Shell process exited with code: {self.process.returncode}, restarting...")
+      self.process = None
+
     if not self.process:
       await self.start_shell()  # Ensure the shell is running
 

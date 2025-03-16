@@ -230,7 +230,7 @@ def init_model(*, model_provider, model_name):
     )
   elif model_provider == "google_genai":
     model = ChatGoogleGenerativeAI(
-        model="gemini-1.5-pro",
+        model=model_name,
         temperature=0,
         max_tokens=None,
         timeout=None,

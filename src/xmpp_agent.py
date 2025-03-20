@@ -38,6 +38,8 @@ class XmppAgent(ClientXMPP):
     self.join_room_jids = [f"{room}@{muc_host}" for room in self.join_rooms]
     self.options = options
 
+    self.presence_replied = []
+
     if ALLOW_INSECURE:
       # Allow insecure certificates
       #
@@ -240,13 +242,15 @@ class XmppAgent(ClientXMPP):
             documentation for the Presence stanza
             to see how else it may be used.
     """
-    # logger.debug(f'presense: {presence}')
+    logger.debug(f'presense: {presence}')
     if presence['muc']['nick'] != self.nick:
-      self.send_message(mto=presence['from'].bare,
-                        mbody="Hello!",
-                        # NOTE: agents start talking if mention them
-                        # mbody="Hello, %s %s" % (presence['muc']['role'], presence['muc']['nick']),
-                        mtype='groupchat')
+      if not presence['from'].bare in self.presence_replied:
+        self.send_message(mto=presence['from'].bare,
+                          mbody="Hello!",
+                          # NOTE: agents start talking if mention them
+                          # mbody="Hello, %s %s" % (presence['muc']['role'], presence['muc']['nick']),
+                          mtype='groupchat')
+        self.presence_replied.append(presence['from'].bare)
 
   async def groupchat_direct_invite(self, msg):
     """

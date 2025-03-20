@@ -5,6 +5,7 @@ from xmpp_agent import XmppAgent
 
 logger = logging.getLogger("CommandV1")
 
+
 class AsyncShellExecutor:
   def __init__(self, *, execute='/bin/sh', shell=False):
     self.execute = execute
@@ -50,23 +51,32 @@ class AsyncShellExecutor:
 
   async def read_continuous_output(self, stream, reply_func):
     """Continuously reads and sends output until no more data arrives."""
+    buffer = ''
     while True:
       try:
         # Try reading output with a short timeout to avoid blocking indefinitely
-        line = await asyncio.wait_for(stream.readline(), timeout=0.1)
+        line = await asyncio.wait_for(stream.readline(), timeout=1)
         if not line:
           break  # No more data, exit the loop
 
-        decoded_line = line.decode().strip()
+        # decoded_line = line.decode().strip()
+        decoded_line = line.decode()
         logger.debug(f'read_output: {decoded_line}')
-
-        if reply_func:
-          reply_func(decoded_line)  # Send real-time output to XMPP
+        buffer += decoded_line
 
       except asyncio.TimeoutError:
+        if reply_func and buffer:
+          logger.debug(f'buffer: {buffer}')
+          reply_func(buffer)  # Send real-time output to XMPP
+          buffer = ''
         continue  # No output received yet, keep checking
       except asyncio.CancelledError:
         break  # Exit the loop if task is cancelled
+
+    logger.debug(f'exit buffer: {buffer}')
+    if reply_func and buffer:
+      reply_func(buffer)  # Send real-time output to XMPP
+      buffer = ''
 
   async def run_prompt(self, prompt, reply_func):
     """Executes a command and continuously streams stdout & stderr."""
@@ -77,6 +87,7 @@ class AsyncShellExecutor:
     if not self.process:
       await self.start_shell()  # Ensure the shell is running
 
+    logger.debug(f"run_prompt> send_command: {prompt}")
     await self.send_command(prompt)
 
     # Start continuous reading loops for both stdout and stderr
@@ -86,7 +97,6 @@ class AsyncShellExecutor:
     # Track these tasks so they can be canceled if a new command arrives
     self.reading_tasks.extend([stdout_task, stderr_task])
 
-    # Wait for both reading loops to finish
     await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)  # Avoid exceptions stopping execution
 
 

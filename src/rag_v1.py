@@ -58,7 +58,6 @@ WEAVIATE_GRPC_SECURE = str_to_bool(os.getenv("WEAVIATE_GRPC_SECURE", "false"))
 # Google Settings
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 GOOGLE_TOKEN = os.getenv("GOOGLE_TOKEN", "./token.json")
-GOOGLE_DRIVE_UNSTRUCTURED = str_to_bool(os.getenv("GOOGLE_DRIVE_UNSTRUCTURED", "true"))
 
 
 class RagV1(XmppAgent):
@@ -178,8 +177,8 @@ class RagV1(XmppAgent):
           file_ids=loader.filesIds if loader.filesIds else None,
           document_ids=loader.documentIds if loader.documentIds else None,
 
-          file_loader_cls=UnstructuredFileIOLoader if GOOGLE_DRIVE_UNSTRUCTURED else None,
-          file_loader_kwargs={"mode": "elements"} if GOOGLE_DRIVE_UNSTRUCTURED else None,
+          file_loader_cls=UnstructuredFileIOLoader if loader.unstructured else None,
+          file_loader_kwargs={"mode": "elements"} if loader.unstructured else None,
 
           credentials_path=GOOGLE_APPLICATION_CREDENTIALS,
           token_path=GOOGLE_TOKEN,
@@ -199,7 +198,7 @@ class RagV1(XmppAgent):
 
     # TODO: Bring here the whole prompt from hub
     # Define prompt for question-answering
-    prompt = hub.pull("rlm/rag-prompt")
+    self.prompt = hub.pull("rlm/rag-prompt")
 
     # Define state for application
     class State(TypedDict):
@@ -214,7 +213,7 @@ class RagV1(XmppAgent):
 
     def generate(state: State):
       docs_content = "\n\n".join(doc.page_content for doc in state["context"])
-      messages = prompt.invoke({"question": state["question"], "context": docs_content})
+      messages = self.prompt.invoke({"question": state["question"], "context": docs_content})
       response = self.model.invoke(messages)
       return {"answer": response.content}
 

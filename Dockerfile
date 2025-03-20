@@ -9,6 +9,7 @@ RUN apt-get update --yes && \
             curl ca-certificates gcc g++ make \
             npm wget libmagic1 chromium chromium-driver \
             libreoffice \
+            tesseract-ocr \
             && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -24,7 +25,12 @@ ENV CHROME_BIN=/usr/bin/chromium \
 
 RUN npm i -g nodemon
 RUN pip install --upgrade pip && \
-    pip install nltk==3.9.1 playwright==1.51.0 ipython==9.0.2 ipykernel==6.29.5 && \
+    pip install \
+      nltk==3.9.1 \
+      playwright==1.51.0 \
+      ipython==9.0.2 \
+      ipykernel==6.29.5 \
+      && \
     python -m nltk.downloader punkt punkt_tab averaged_perceptron_tagger_eng && \
     python -m ipykernel install --user --name python3 && \
     playwright install --with-deps

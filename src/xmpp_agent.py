@@ -4,6 +4,7 @@ Base XMPP Agent
 import os
 import logging
 import ssl
+import asyncio
 
 from slixmpp import ClientXMPP
 import httpx
@@ -16,7 +17,10 @@ logger = logging.getLogger("XmppAgent")
 load_dotenv()
 
 ALLOW_INSECURE = str_to_bool(os.getenv("ALLOW_INSECURE", "False"))
-REGISTER_PORT = int(os.getenv("REGISTER_PORT", "8387"))
+XMPP_COMMANDER_URL = os.getenv("XMPP_COMMANDER_URL", "http://localhost:8387")
+XMPP_CONNECT_HOST = os.getenv("XMPP_CONNECT_HOST", "")
+XMPP_CONNECT_PORT = int(os.getenv("XMPP_CONNECT_PORT", "5222"))
+XMPP_RECONNECT_MAX_DELAY = int(os.getenv("XMPP_RECONNECT_MAX_DELAY", "300"))
 
 
 class XmppAgent(ClientXMPP):
@@ -26,7 +30,7 @@ class XmppAgent(ClientXMPP):
 
   def __init__(self, *, host, user, password, muc_host, join_rooms, nick, options):
     jid = f"{user}@{host}"
-    ClientXMPP.__init__(self, jid, password)
+    super().__init__(self, jid, password)
 
     self.host = host
     self.user = user
@@ -38,21 +42,21 @@ class XmppAgent(ClientXMPP):
     self.join_room_jids = [f"{room}@{muc_host}" for room in self.join_rooms]
     self.options = options
 
+    # Reconnection backoff variables
+    self.reconnect_attempts = 0
+    self.current_delay = 1  # Start with 1 second
+
     self.presence_replied = []
 
     if ALLOW_INSECURE:
       # Allow insecure certificates
-      #
-      # Configure SSL context
-      self.ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+      logger.debug("Allowing insecure SSL connections")
+      self.ssl_context = ssl.create_default_context()
       self.ssl_context.check_hostname = False
       self.ssl_context.verify_mode = ssl.CERT_NONE
-      # Enable all available protocols
-      self.ssl_context.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
-      self.ssl_context.maximum_version = ssl.TLSVersion.MAXIMUM_SUPPORTED
-      # Register event handlers
       self.add_event_handler('ssl_invalid_cert', self.ssl_invalid_cert)
 
+    self.add_event_handler('connected', self.connected)
     self.add_event_handler('failed_auth', self.failed_auth)
 
     # The session_start event will be triggered when
@@ -92,7 +96,24 @@ class XmppAgent(ClientXMPP):
     self.register_plugin('xep_0060')  # PubSub
     self.register_plugin('xep_0249')  # Direct MUC Invitations
 
-    self.connect()
+  async def connect(self):
+    if self.reconnect_attempts == 0:
+      logger.info("Connection attempt.")
+    else:
+      logger.info(f"Reconnection attempt {self.reconnect_attempts}. Waiting {self.current_delay} seconds before trying again.")
+      await asyncio.sleep(self.current_delay)
+      self.current_delay = min(self.current_delay * 2, XMPP_RECONNECT_MAX_DELAY)
+    self.reconnect_attempts += 1
+
+    if XMPP_CONNECT_HOST:
+      super().connect((XMPP_CONNECT_HOST, XMPP_CONNECT_PORT))
+    else:
+      super().connect()
+
+  def connected(self):
+    # Reset reconnection parameters on successful connection
+    self.reconnect_attempts = 0
+    self.current_delay = 1
 
   def ssl_invalid_cert(self, pem_cert):
     logger.warning("Warning: Invalid SSL certificate received")
@@ -108,14 +129,14 @@ class XmppAgent(ClientXMPP):
       registered = await self.register_user()
       if registered:
         logger.debug('User registered. Reconnect')
-        self.connect()
+        await self.connect()
 
   async def register_user(self):
     logger.info(f'Register a new XMPP user with credentials> user: {self.user}, password: {self.password}')
     try:
       async with httpx.AsyncClient() as client:
         response = await client.get(
-          f"http://{self.host}:{REGISTER_PORT}/register",
+          f"{XMPP_COMMANDER_URL}/register",
           params={
             "user": self.user,
             "password": self.password,
@@ -151,7 +172,7 @@ class XmppAgent(ClientXMPP):
       self.plugin['xep_0045'].join_muc(room_jid, self.nick)
 
   async def start(self):
-    logger.warning("WARNING: XmppAgent.start() should be defined in child class")
+    await self.connect()
 
   async def chat(self, *, prompt, reply_func=None):
     logger.warning("WARNING: XmppAgent.chat() should be defined in child class")
@@ -213,8 +234,7 @@ class XmppAgent(ClientXMPP):
     # logger.debug(f'msg body: {msg['body']}')
     # logger.debug(f'msg mucnick: {msg['mucnick']}')
     # logger.debug(f'msg from: {msg['from']}')
-
-    if msg['mucnick'] != self.nick and self.nick in msg['body']:
+    if msg['mucnick'] != self.nick and f"@{self.nick}" in msg['body']:
       try:
         def reply_func(content):
           self.send_message(mto=msg['from'].bare,
@@ -264,6 +284,6 @@ class XmppAgent(ClientXMPP):
     logger.debug(f"  Room: {room_jid}")
     logger.debug(f"  Reason: {invite.get('reason')}")
 
-    logger.info(f'Joining the room> room_jid: {room_jid}')
+    logger.info(f'Joining the room by invite> room_jid: {room_jid}')
     self.add_event_handler("muc::%s::got_online" % room_jid, self.muc_online)
     self.plugin['xep_0045'].join_muc(room_jid, self.nick)

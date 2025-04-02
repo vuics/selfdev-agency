@@ -23,7 +23,7 @@ class NotebookV1(XmppAgent):
   NotebookV1 provides exectution of Jupyter Notebooks and their outputs
   '''
   async def start(self):
-    pass
+    await super().start()
 
   async def run_papermill(self, *, notebook_path, parameters=None,
                           kernel_name='python3', reply_func=None):

@@ -61,7 +61,7 @@ DB_URL = os.getenv("DB_URL", "mongodb://mongo.dev.local:27017/selfdev")
 XMPP_HOST = os.getenv("XMPP_HOST", "selfdev-prosody.dev.local")
 XMPP_PASSWORD = os.getenv("XMPP_PASSWORD", "123")
 XMPP_MUC_HOST = os.getenv("XMPP_MUC_HOST", f"conference.{XMPP_HOST}")
-XMPP_JOIN_ROOMS_DEFAULT = json.loads(os.getenv('XMPP_JOIN_ROOMS_DEFAULT', '[ "all" ]'))
+XMPP_JOIN_ROOMS_DEFAULT = json.loads(os.getenv('XMPP_JOIN_ROOMS_DEFAULT', '[ ]'))
 
 # Agent monitoring settings
 MONITOR_SECONDS = int(os.getenv("MONITOR_SECONDS", "60"))

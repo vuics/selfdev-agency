@@ -15,6 +15,7 @@ class ChatV1(XmppAgent):
   ChatV1 provides chats with LLMs
   '''
   async def start(self):
+    await super().start()
     try:
       self.model = init_model(model_provider=self.options.model.provider,
                               model_name=self.options.model.name)

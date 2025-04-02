@@ -66,6 +66,7 @@ class RagV1(XmppAgent):
   '''
 
   async def start(self):
+    await super().start()
     # Load LLM and embeddings
     try:
       self.model = init_model(model_provider=self.options.model.provider,

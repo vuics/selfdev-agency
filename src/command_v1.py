@@ -108,6 +108,7 @@ class CommandV1(XmppAgent):
   and execute another command or script.
   '''
   async def start(self):
+    await super().start()
     self.executor = AsyncShellExecutor(
       execute=self.options.command.execute,
       shell=self.options.command.shell,

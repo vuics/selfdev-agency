@@ -36,6 +36,8 @@ import os
 import json
 import signal
 import time
+import traceback
+
 import uuid
 from typing import Dict, Any, List, Optional, Type
 from dotenv import load_dotenv
@@ -359,6 +361,7 @@ async def start_agent(config: AgentConfig) -> Optional[XmppAgent]:
     # Release the lock if we failed to start the agent
     await release_lock(config.name)
     logger.error(f"Error starting agent {config.name}: {e}")
+    traceback.print_exc()
     return None
 
 

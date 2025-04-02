@@ -30,7 +30,7 @@ class XmppAgent(ClientXMPP):
 
   def __init__(self, *, host, user, password, muc_host, join_rooms, nick, options):
     jid = f"{user}@{host}"
-    super().__init__(self, jid, password)
+    super().__init__(jid, password)
 
     self.host = host
     self.user = user
@@ -110,7 +110,8 @@ class XmppAgent(ClientXMPP):
     else:
       super().connect()
 
-  def connected(self):
+  def connected(self, data):
+    logger.info(f'{self.jid} agent is connected. Data: {data}')
     # Reset reconnection parameters on successful connection
     self.reconnect_attempts = 0
     self.current_delay = 1
@@ -234,15 +235,23 @@ class XmppAgent(ClientXMPP):
     # logger.debug(f'msg body: {msg['body']}')
     # logger.debug(f'msg mucnick: {msg['mucnick']}')
     # logger.debug(f'msg from: {msg['from']}')
-    if msg['mucnick'] != self.nick and f"@{self.nick}" in msg['body']:
+    if msg['mucnick'] != self.nick and self.nick in msg['body']:
       try:
         def reply_func(content):
           self.send_message(mto=msg['from'].bare,
                             mbody=content,
                             mtype='groupchat')
 
-        content = await self.chat(prompt=msg['body'], reply_func=reply_func)
-        reply_func(content)
+        # Detect <reference type="mention">
+        for ref in msg.xml.findall('{urn:xmpp:reference:0}reference'):
+          if ref.get('type') == 'mention':
+            uri = ref.get('uri')
+            if uri.endswith(f'/{self.nick}'):
+              logger.debug(f"🔔 Mention detected via reference: {ref}")
+
+              content = await self.chat(prompt=msg['body'], reply_func=reply_func)
+              reply_func(content)
+
       except Exception as err:
         logger.error('groupchat_message error:', err)
     # elif msg['mucnick'] != self.nick:

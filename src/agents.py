@@ -384,8 +384,8 @@ async def sync_agents(db):
   """Synchronize running agents with the database configuration"""
   configs = await get_agent_configs(db)
   logger.debug('sync_agents():')
-  logger.debug(f'  configs: {configs}')
-  logger.debug(f'  (before) running_agents: {running_agents}')
+  logger.debug(f'🗂️  Configs: {configs}')
+  logger.debug(f'🥚 BEFORE: running_agents: {running_agents}')
 
   # Track which agents should be running
   should_run = {}
@@ -407,7 +407,7 @@ async def sync_agents(db):
     if agent_name not in should_run:
       logger.debug(f'  stop agent: {config.name}')
       await stop_agent(agent_name)
-  logger.debug(f'  (after) running_agents: {running_agents}')
+  logger.debug(f'🐣 AFTER: running_agents: {running_agents}')
 
 
 async def monitor_agents(db):

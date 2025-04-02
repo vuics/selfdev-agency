@@ -110,17 +110,17 @@ class CommandV1(XmppAgent):
   async def start(self):
     await super().start()
     self.executor = AsyncShellExecutor(
-      execute=self.options.command.execute,
-      shell=self.options.command.shell,
+      execute=self.config.options.command.execute,
+      shell=self.config.options.command.shell,
     )
 
   async def chat(self, *, prompt, reply_func=None):
     try:
       logger.debug(f"prompt: {prompt}")
-      logger.debug(f'self.options: {self.options}')
-      logger.debug(f"self.options.command: {self.options.command}")
+      logger.debug(f'self.config.options: {self.config.options}')
+      logger.debug(f"self.config.options.command: {self.config.options.command}")
 
-      edited_prompt = prompt.replace(self.options.name, "").strip()
+      edited_prompt = prompt.replace(self.config.options.name, "").strip()
       output = await self.executor.run_prompt(edited_prompt, reply_func)
 
       logger.debug(f"output: {output}")

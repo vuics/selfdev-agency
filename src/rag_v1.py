@@ -69,26 +69,26 @@ class RagV1(XmppAgent):
     await super().start()
     # Load LLM and embeddings
     try:
-      self.model = init_model(model_provider=self.options.model.provider,
-                              model_name=self.options.model.name)
+      self.model = init_model(model_provider=self.config.options.model.provider,
+                              model_name=self.config.options.model.name)
       logger.debug(f"self.model: {self.model}")
     except Exception as e:
       logger.error(f"Error initializing model: {e}")
 
     try:
-      self.embeddings = init_embeddings(model_provider=self.options.embeddings.provider,
-                                        embeddings_name=self.options.embeddings.name)
+      self.embeddings = init_embeddings(model_provider=self.config.options.embeddings.provider,
+                                        embeddings_name=self.config.options.embeddings.name)
     except Exception as e:
       logger.error(f"Error initializing embeddings model: {e}")
 
     # Load vector store
     vector_store = None
-    logger.info(f"Vector store: {self.options.vectorStore}")
-    if self.options.vectorStore == "memory":
+    logger.info(f"Vector store: {self.config.options.vectorStore}")
+    if self.config.options.vectorStore == "memory":
       vector_store = InMemoryVectorStore(self.embeddings)
-    elif self.options.vectorStore == "chroma":
+    elif self.config.options.vectorStore == "chroma":
       try:
-        collection_name = CHROMA_COLLECTION.format(self.options.name)
+        collection_name = CHROMA_COLLECTION.format(self.config.options.name)
         chroma_client = chromadb.HttpClient(host=CHROMA_HOST,
                                             port=CHROMA_PORT)
         vector_store = Chroma(client=chroma_client,
@@ -97,16 +97,16 @@ class RagV1(XmppAgent):
       except Exception as e:
         logger.error(f"Error creating Chroma client: {e}")
         raise
-    elif self.options.vectorStore == "chroma-dir":
+    elif self.config.options.vectorStore == "chroma-dir":
       try:
-        collection_name = CHROMA_COLLECTION.format(self.options.name)
+        collection_name = CHROMA_COLLECTION.format(self.config.options.name)
         vector_store = Chroma(persist_directory=CHROMA_DIRECTORY,
                               collection_name=CHROMA_COLLECTION,
                               embedding_function=self.embeddings)
       except Exception as e:
         logger.error(f"Error creating Chroma client: {e}")
         raise
-    elif self.options.vectorStore == "weaviate":
+    elif self.config.options.vectorStore == "weaviate":
       try:
         weaviate_client = weaviate.connect_to_custom(
           http_host=WEAVIATE_HTTP_HOST,
@@ -121,7 +121,7 @@ class RagV1(XmppAgent):
         logger.error(f"Error creating Weaviate client: {e}")
         raise
     else:
-      raise Exception(f"Unknown vector store: {self.options.vectorStore}")
+      raise Exception(f"Unknown vector store: {self.config.options.vectorStore}")
 
     # Document Loaders
     #
@@ -135,7 +135,7 @@ class RagV1(XmppAgent):
 
     self.docs = []
 
-    for loader in self.options.loaders:
+    for loader in self.config.options.loaders:
       logger.debug(f"loader: {loader}")
       if not loader.enable:
         continue

@@ -28,7 +28,7 @@ class XmppAgent(ClientXMPP):
   A Base XMPP Agent
   """
 
-  def __init__(self, *, host, user, password, muc_host, join_rooms, nick, options):
+  def __init__(self, *, host, user, password, muc_host, join_rooms, nick, config):
     jid = f"{user}@{host}"
     super().__init__(jid, password)
 
@@ -40,7 +40,7 @@ class XmppAgent(ClientXMPP):
     self.join_rooms = join_rooms
     self.nick = nick
     self.join_room_jids = [f"{room}@{muc_host}" for room in self.join_rooms]
-    self.options = options
+    self.config = config
 
     # Reconnection backoff variables
     self.reconnect_attempts = 0

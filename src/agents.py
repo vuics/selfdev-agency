@@ -63,7 +63,6 @@ DB_URL = os.getenv("DB_URL", "mongodb://mongo.dev.local:27017/selfdev")
 XMPP_HOST = os.getenv("XMPP_HOST", "selfdev-prosody.dev.local")
 XMPP_PASSWORD = os.getenv("XMPP_PASSWORD", "123")
 XMPP_MUC_HOST = os.getenv("XMPP_MUC_HOST", f"conference.{XMPP_HOST}")
-XMPP_JOIN_ROOMS_DEFAULT = json.loads(os.getenv('XMPP_JOIN_ROOMS_DEFAULT', '[ ]'))
 
 # Agent monitoring settings
 MONITOR_SECONDS = int(os.getenv("MONITOR_SECONDS", "60"))
@@ -113,6 +112,7 @@ class AgentConfig:
     self.deployed = doc.get('deployed', False)
     self.archetype = doc.get('archetype', None)
     self.options = Box(doc.get('options', {}))
+    self.updated_at = doc.get('updatedAt', None)
     self.name = self.options.name
     self.joinRooms = self.options.joinRooms
 
@@ -349,9 +349,9 @@ async def start_agent(config: AgentConfig) -> Optional[XmppAgent]:
       user=config.name,  # Use agent name as XMPP username
       password=XMPP_PASSWORD,
       muc_host=XMPP_MUC_HOST,
-      join_rooms=config.joinRooms or XMPP_JOIN_ROOMS_DEFAULT,
+      join_rooms=config.joinRooms,
       nick=config.name,  # Use agent name as XMPP nickname
-      options=config.options,
+      config=config,
     )
     asyncio.create_task(agent.start())
 
@@ -384,7 +384,7 @@ async def sync_agents(db):
   """Synchronize running agents with the database configuration"""
   configs = await get_agent_configs(db)
   logger.debug('sync_agents():')
-  logger.debug(f'🗂️  Configs: {configs}')
+  logger.debug(f'🗂️ Configs: {configs}')
   logger.debug(f'🥚 BEFORE: running_agents: {running_agents}')
 
   # Track which agents should be running
@@ -397,15 +397,23 @@ async def sync_agents(db):
 
       if config.name not in running_agents:
         # Start new agent
-        logger.debug(f'  start agent: {config.name}, config: {config}')
+        logger.info(f'▶️ Start agent: {config.name}, config: {config}')
         agent = await start_agent(config)
         if agent:
           running_agents[config.name] = agent
+      else:
+        # Check if config was updated, then need to restart the agent
+        if config.updated_at != running_agents[config.name].config.updated_at:
+          logger.info(f'🔄 Restart agent: {config.name}, config: {config} because its config got updated: old updated_at: {config.updated_at}, new updated_at: {running_agents[config.name].config.updated_at}.')
+          await stop_agent(config.name)
+          agent = await start_agent(config)
+          if agent:
+            running_agents[config.name] = agent
 
   # Stop agents that should no longer be running
   for agent_name in list(running_agents.keys()):
     if agent_name not in should_run:
-      logger.debug(f'  stop agent: {config.name}')
+      logger.info(f'⏹️ Stop agent: {config.name}')
       await stop_agent(agent_name)
   logger.debug(f'🐣 AFTER: running_agents: {running_agents}')
 

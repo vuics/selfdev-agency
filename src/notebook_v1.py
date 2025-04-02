@@ -132,24 +132,24 @@ class NotebookV1(XmppAgent):
   async def chat(self, *, prompt, reply_func=None):
     try:
       logger.debug(f"prompt: {prompt}")
-      logger.debug(f'self.options: {self.options}')
-      logger.debug(f"self.options.notebook: {self.options.notebook}")
+      logger.debug(f'self.config.options: {self.config.options}')
+      logger.debug(f"self.config.options.notebook: {self.config.options.notebook}")
       parameters = {}
-      if hasattr(self.options.notebook, 'parameters'):
-        parameters = copy.deepcopy(self.options.notebook.parameters)
-      if hasattr(self.options.notebook, 'parseJson') and self.options.notebook.parseJson:
+      if hasattr(self.config.options.notebook, 'parameters'):
+        parameters = copy.deepcopy(self.config.options.notebook.parameters)
+      if hasattr(self.config.options.notebook, 'parseJson') and self.config.options.notebook.parseJson:
         try:
           parsed_json = extract_and_parse_json(prompt)
           logger.debug(f'parsed_json: {parsed_json}')
           parameters.update(parsed_json)
         except Exception:
           pass
-      if hasattr(self.options.notebook, 'promptKey'):
-        parameters.update({self.options.notebook.promptKey: prompt})
+      if hasattr(self.config.options.notebook, 'promptKey'):
+        parameters.update({self.config.options.notebook.promptKey: prompt})
       output = await self.run_papermill(
-        notebook_path=self.options.notebook.filePath,
+        notebook_path=self.config.options.notebook.filePath,
         parameters=parameters,
-        kernel_name=self.options.notebook.kernelName if hasattr(self.options.notebook, 'kernelName') else None,
+        kernel_name=self.config.options.notebook.kernelName if hasattr(self.config.options.notebook, 'kernelName') else None,
         reply_func=reply_func,
       )
 

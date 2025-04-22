@@ -52,6 +52,7 @@ from chat_v1 import ChatV1
 from rag_v1 import RagV1
 from notebook_v1 import NotebookV1
 from command_v1 import CommandV1
+from langflow_v1 import LangflowV1
 
 # Load environment variables
 load_dotenv()
@@ -94,6 +95,7 @@ ARCHETYPE_CLASSES = {
   "rag-v1.0": RagV1,
   "notebook-v1.0": NotebookV1,
   "command-v1.0": CommandV1,
+  "langflow-v1.0": LangflowV1,
 }
 
 # Running agents registry

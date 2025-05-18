@@ -54,6 +54,7 @@ from notebook_v1 import NotebookV1
 from command_v1 import CommandV1
 from langflow_v1 import LangflowV1
 from nodered_v1 import NoderedV1
+from quantum_v1 import QuantumV1
 
 # Load environment variables
 load_dotenv()
@@ -98,6 +99,7 @@ ARCHETYPE_CLASSES = {
   "command-v1.0": CommandV1,
   "langflow-v1.0": LangflowV1,
   "nodered-v1.0": NoderedV1,
+  "quantum-v1.0": QuantumV1,
 }
 
 # Running agents registry

@@ -85,3 +85,9 @@ pytesseract==0.3.13
 # langchain-openai==0.3.5
 # langchain-ollama==0.2.3
 # langchain-anthropic==0.3.7
+
+qiskit==2.0.1
+qiskit-ibm-runtime==0.39.0
+# qiskit-aer==0.17.0
+# qiskit-aer-gpu==0.15.1
+# qiskit-aer-gpu-cu11==0.17.0

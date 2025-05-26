@@ -9,7 +9,7 @@ setuptools.setup(
   author='Artem Arakcheev',
   author_email='artarakcheev@gmail.com',
   description='Selfdev Agency microservices',
-  url='https://github.com/ai-az1/selfdev-agency.git',
+  url='https://github.com/vuics/selfdev-agency.git',
   packages=setuptools.find_packages(),
   classifiers=[
     'Programming Language :: Python :: 3',

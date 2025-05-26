@@ -1,3 +1,3 @@
 [submodule "input/tech-docs"]
 	path = input/tech-docs
-	url = git@github.com:ai-az1/tech-docs.git
+	url = git@github.com:vuics/tech-docs.git

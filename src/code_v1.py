@@ -1,33 +1,23 @@
-'''
-CodeV1 Agent Archetype
-'''
 import os
 import logging
 import re
-import time
+import asyncio
 
-# from dotenv import load_dotenv
 from jupyter_client import KernelManager
 
 from xmpp_agent import XmppAgent
 
 logger = logging.getLogger("CodeV1")
 
-# Load environment variables
-# load_dotenv()
-
-# MongoDB connection settings
-# DB_URL = os.getenv("DB_URL", "mongodb://mongo.dev.local:27017/selfdev")
-
 
 class CodeV1(XmppAgent):
   '''
   CodeV1 provides code execution with kernels similar to a Jupyter Notebook.
   '''
+
   async def start(self):
     await super().start()
     try:
-      # logger.debug(f'self.config: {self.config}')
       self.code = self.config.options.code
       logger.debug(f'self.code: {self.code}')
 
@@ -35,32 +25,26 @@ class CodeV1(XmppAgent):
       self.regex_restart = re.compile(self.code.commands["restart"])
       self.regex_reconnect = re.compile(self.code.commands["reconnect"])
       self.regex_shutdown = re.compile(self.code.commands["shutdown"])
-      logger.debug(f'regex_start: {self.regex_start}')
-      logger.debug(f'regex_restart: {self.regex_restart}')
-      logger.debug(f'regex_reconnect: {self.regex_reconnect}')
-      logger.debug(f'regex_shutdown: {self.regex_shutdown}')
 
-      if self.code.kernel == "python3":
-        pass
-      elif self.code.kernel == "javascript":
-        pass
-      else:
+      if self.code.kernel not in ["python3", "javascript"]:
         raise Exception('Unknown kernel')
 
       self.km = KernelManager(kernel_name=self.code.kernel)
       self.km.start_kernel()
-      logger.debug(f'km: {self.km}')
       self.kc = self.km.client()
       self.kc.start_channels()
-      logger.debug(f'kc: {self.kc}')
 
     except Exception as e:
       logger.error(f"Error initializing model: {e}")
+      if hasattr(self, "kc"):
+        self.kc.stop_channels()
+      if hasattr(self, "km"):
+        self.km.shutdown_kernel()
 
   async def chat(self, *, prompt, reply_func=None):
+    loop = asyncio.get_event_loop()
     try:
       logger.debug(f"prompt: {prompt}")
-      # logger.debug(f'self.config.options: {self.config.options}')
       content = ''
 
       if re.match(self.regex_start, prompt):
@@ -68,53 +52,77 @@ class CodeV1(XmppAgent):
         self.km.start_kernel()
         self.kc = self.km.client()
         self.kc.start_channels()
-        logger.debug(f'kc: {self.kc}')
-        content = "Started the kernel."
+        return "Started the kernel."
 
-      if re.match(self.regex_restart, prompt):
+      elif re.match(self.regex_restart, prompt):
         logger.debug("RESTART command")
         self.km.restart_kernel()
-        time.sleep(3)
+        await asyncio.sleep(3)
         self.kc.stop_channels()
         self.kc = self.km.client()
         self.kc.start_channels()
-        content = "Restarted the kernel."
+        return "Restarted the kernel."
 
-      if re.match(self.regex_reconnect, prompt):
+      elif re.match(self.regex_reconnect, prompt):
         logger.debug("RECONNECT command")
         self.kc.stop_channels()
         self.kc = self.km.client()
         self.kc.start_channels()
-        content = "Reconnected to the kernel."
+        return "Reconnected to the kernel."
 
-      if re.match(self.regex_shutdown, prompt):
+      elif re.match(self.regex_shutdown, prompt):
+        logger.debug("SHUTDOWN command")
         self.kc.stop_channels()
         self.km.shutdown_kernel()
-        content = "Shut down the kernel."
+        return "Shut down the kernel."
 
       else:
-        self.kc.execute(prompt)
+        msg_id = self.kc.execute(prompt)
+        logger.debug(f"msg_id: {msg_id}")
         while True:
-          msg = self.kc.get_iopub_msg()
-          if msg['msg_type'] == 'stream':
-            text = msg['content']['text']
+          msg = await loop.run_in_executor(None, self.kc.get_iopub_msg)
+          logger.debug(f"msg: {msg}")
+
+          msg_type = msg.get('msg_type')
+          content_obj = msg.get('content', {})
+
+          if msg_type == 'stream':
+            text = content_obj.get('text', '')
             content += text
             logger.debug(f"STDOUT: {text}")
-          elif msg['msg_type'] == 'execute_result':
-            data = msg['content']['data']['text/plain']
-            text += data
-            logger.debug(f"RESULT: {text}")
-          elif msg['msg_type'] == 'error':
-            error = msg['content']['evalue']
-            content += error
+
+          elif msg_type == 'execute_result':
+            data = content_obj.get('data', {}).get('text/plain', '')
+            content += data
+            logger.debug(f"RESULT: {data}")
+
+          elif msg_type == 'display_data':
+            text_data = content_obj.get('data', {}).get('text/plain')
+            image_data = content_obj.get('data', {}).get('image/png')
+            if image_data:
+              # img_tag = f'<img src="data:image/png;base64,{image_data}" alt="Plot Image"/>'
+              # content += "\n" + img_tag
+              # logger.debug("DISPLAY IMAGE embedded as base64 data URI.")
+              markdown_img = f'![Plot Image](data:image/png;base64,{image_data})'
+              content += "\n" + markdown_img
+              logger.debug("DISPLAY IMAGE received (PNG).")
+            if text_data:
+              content += "\n" + text_data
+              logger.debug(f"DISPLAY TEXT: {text_data}")
+
+          elif msg_type == 'error':
+            error = content_obj.get('evalue', '')
+            content += f"\nError: {error}"
             logger.debug(f"ERROR: {error}")
-            break
-          elif msg['msg_type'] == 'status' and msg['content']['execution_state'] == 'idle':
+
+          elif msg_type == 'status' and content_obj.get('execution_state') == 'idle':
+            logger.debug(f"execution_state: {content_obj.get('execution_state')}")
             break
 
-      return content
+        return content
+
     except Exception as e:
-      logger.error(f"Storage error: {e}")
+      logger.error(f"CodeV1 error: {e}")
       return f'Error: {str(e)}'
 
   async def disconnect(self):

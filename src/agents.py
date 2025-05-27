@@ -55,6 +55,7 @@ from command_v1 import CommandV1
 from langflow_v1 import LangflowV1
 from nodered_v1 import NoderedV1
 from quantum_v1 import QuantumV1
+from storage_v1 import StorageV1
 
 # Load environment variables
 load_dotenv()
@@ -100,6 +101,7 @@ ARCHETYPE_CLASSES = {
   "langflow-v1.0": LangflowV1,
   "nodered-v1.0": NoderedV1,
   "quantum-v1.0": QuantumV1,
+  "storage-v1.0": StorageV1,
 }
 
 # Running agents registry
@@ -113,12 +115,12 @@ class AgentConfig:
   """Python representation of the MongoDB agent schema"""
   def __init__(self, doc: Dict[str, Any]):
     self.id = str(doc.get('_id'))
-    self.user_id = str(doc.get('userId'))
+    self.userId = str(doc.get('userId'))
 
     self.deployed = doc.get('deployed', False)
     self.archetype = doc.get('archetype', None)
     self.options = Box(doc.get('options', {}))
-    self.updated_at = doc.get('updatedAt', None)
+    self.updatedAt = doc.get('updatedAt', None)
     self.name = self.options.name
     self.joinRooms = self.options.joinRooms
 
@@ -409,8 +411,8 @@ async def sync_agents(db):
           running_agents[config.name] = agent
       else:
         # Check if config was updated, then need to restart the agent
-        if config.updated_at != running_agents[config.name].config.updated_at:
-          logger.info(f'🔄 Restart agent: {config.name}, config: {config} because its config got updated: old updated_at: {config.updated_at}, new updated_at: {running_agents[config.name].config.updated_at}.')
+        if config.updatedAt != running_agents[config.name].config.updatedAt:
+          logger.info(f'🔄 Restart agent: {config.name}, config: {config} because its config got updated: old updatedAt: {config.updatedAt}, new updatedAt: {running_agents[config.name].config.updatedAt}.')
           await stop_agent(config.name)
           agent = await start_agent(config)
           if agent:

@@ -64,17 +64,33 @@ class StorageV1(XmppAgent):
         })
         items = await cursor.to_list(length=None)
         keys = [item["key"] for item in items]
-        content = "Keys: " + ", ".join(keys) if keys else "No keys found."
+        if self.storage.verbose == 2:
+          content = "Keys: " + ", ".join(keys) if keys else "No keys found."
+        elif self.storage.verbose == 1:
+          content = "\n".join(keys) if keys else "NOT_FOUND"
+        else:
+          content = "\n".join(keys) if keys else " "
 
       elif match := re.match(self.regex_get, prompt):
         key = match.group("key")
-        logger.debug(f"GET command with key: {key}")
+        default = match.groupdict().get("default")
+        logger.debug(f"GET command with key: {key}, default: {default}")
         doc = await self.storages.find_one({
-            "userId": self.config.userId,
-            "namespace": self.storage.namespace,
-            "key": key,
+          "userId": self.config.userId,
+          "namespace": self.storage.namespace,
+          "key": key,
         })
-        content = doc["value"] if doc else f"No entry found for key '{key}'."
+        if doc:
+          content = doc["value"]
+        elif default is not None:
+          content = default
+        else:
+          if self.storage.verbose == 2:
+            content = f"No entry found for key '{key}'."
+          elif self.storage.verbose == 1:
+            content = "NOT_FOUND"
+          else:
+            content = " "
 
       elif match := re.match(self.regex_set, prompt):
         key = match.group("key")
@@ -87,7 +103,12 @@ class StorageV1(XmppAgent):
         }, {
           "$set": {"value": value}
         }, upsert=True)
-        content = f"Set key '{key}' to value '{value}'."
+        if self.storage.verbose == 2:
+          content = f"Set key '{key}' to value '{value}'."
+        elif self.storage.verbose == 1:
+          content = value
+        else:
+          content = " "
 
       elif match := re.match(self.regex_delete, prompt):
         key = match.group("key")
@@ -98,13 +119,28 @@ class StorageV1(XmppAgent):
           "key": key,
         })
         if result.deleted_count > 0:
-          content = f"Deleted key '{key}'."
+          if self.storage.verbose == 2:
+            content = f"Deleted key '{key}'."
+          elif self.storage.verbose == 1:
+            content = "OK"
+          else:
+            content = " "
         else:
-          content = f"No entry found for key '{key}'."
+          if self.storage.verbose == 2:
+            content = f"No entry found for key '{key}'."
+          elif self.storage.verbose == 1:
+            content = "NOT_FOUND"
+          else:
+            content = " "
 
       else:
         logger.warning("No valid command match")
-        content = 'Command not found'
+        if self.storage.verbose == 2:
+          content = 'Command not found'
+        elif self.storage.verbose == 1:
+          content = "UNKNOWN_COMMAND"
+        else:
+          content = " "
 
       return content
     except Exception as e:

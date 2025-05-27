@@ -146,3 +146,15 @@ class StorageV1(XmppAgent):
     except Exception as e:
       logger.error(f"Storage error: {e}")
       return f'Error: {str(e)}'
+
+  async def disconnect(self):
+    """
+    Release resources
+    """
+    try:
+      await super().disconnect()
+      logger.debug("Disconnecting from MongoDB...")
+      await self.client.close()
+      logger.info("Disconnected from MongoDB")
+    except Exception as e:
+      logger.error(f"Disconnect error: {e}")

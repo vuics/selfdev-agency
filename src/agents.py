@@ -378,7 +378,7 @@ async def stop_agent(agent_name: str):
   if agent_name in running_agents:
     try:
       agent = running_agents[agent_name]
-      agent.disconnect()
+      await agent.disconnect()
       del running_agents[agent_name]
       logger.info(f"Stopped agent: {agent_name}")
 

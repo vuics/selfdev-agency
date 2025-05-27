@@ -69,6 +69,7 @@ papermill[all]==2.6.0
 scrapbook[all]==0.5.0
 nbconvert==7.16.6
 nbformat==5.10.4
+jupyter-client==8.6.3
 
 python-pptx==1.0.2
 

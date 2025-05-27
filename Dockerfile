@@ -23,6 +23,7 @@ ENV CHROME_BIN=/usr/bin/chromium \
     BROWSER=/usr/bin/chromium \
     DISPLAY=:99
 
+# RUN npm i -g nodemon ijavascript
 RUN npm i -g nodemon
 RUN pip install --upgrade pip && \
     pip install \
@@ -34,6 +35,8 @@ RUN pip install --upgrade pip && \
     python -m nltk.downloader punkt punkt_tab averaged_perceptron_tagger_eng && \
     python -m ipykernel install --user --name python3 && \
     playwright install --with-deps
+    # && \
+    # ijsinstall --install=global
 
 WORKDIR /opt/app/
 

@@ -56,6 +56,7 @@ from langflow_v1 import LangflowV1
 from nodered_v1 import NoderedV1
 from quantum_v1 import QuantumV1
 from storage_v1 import StorageV1
+from code_v1 import CodeV1
 
 # Load environment variables
 load_dotenv()
@@ -102,6 +103,7 @@ ARCHETYPE_CLASSES = {
   "nodered-v1.0": NoderedV1,
   "quantum-v1.0": QuantumV1,
   "storage-v1.0": StorageV1,
+  "code-v1.0": CodeV1,
 }
 
 # Running agents registry

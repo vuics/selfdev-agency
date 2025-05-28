@@ -3,11 +3,17 @@ import logging
 import re
 import asyncio
 
+from dotenv import load_dotenv
 from jupyter_client import KernelManager
 
 from xmpp_agent import XmppAgent
 
 logger = logging.getLogger("CodeV1")
+
+load_dotenv()
+
+# NOTE: See installed kernels with `jupyter kernelspec list`
+ALLOWED_KERNELS = os.getenv("ALLOWED_KERNELS", "python3,javascript,bash").split(',')
 
 
 class CodeV1(XmppAgent):
@@ -26,8 +32,7 @@ class CodeV1(XmppAgent):
       self.regex_reconnect = re.compile(self.code.commands["reconnect"])
       self.regex_shutdown = re.compile(self.code.commands["shutdown"])
 
-      if self.code.kernel not in ["python3", "javascript"]:
-        raise Exception('Unknown kernel')
+      self.check_kernel()
 
       self.km = KernelManager(kernel_name=self.code.kernel)
       self.km.start_kernel()
@@ -41,11 +46,24 @@ class CodeV1(XmppAgent):
       if hasattr(self, "km"):
         self.km.shutdown_kernel()
 
+  def check_kernel(self):
+    if self.code.kernel not in ALLOWED_KERNELS:
+      raise Exception(f'Unknown kernel: {self.code.kernel}')
+    pass
+
   async def chat(self, *, prompt, reply_func=None):
     loop = asyncio.get_event_loop()
     try:
       logger.debug(f"prompt: {prompt}")
       content = ''
+
+      self.check_kernel()
+
+      if not hasattr(self, 'km') or self.km is None:
+          raise Exception('Kernel is not initialized')
+
+      if not hasattr(self, 'kc') or self.kc is None:
+          raise Exception('Kernel client channels are not initialized')
 
       if re.match(self.regex_start, prompt):
         logger.debug("START command")
@@ -73,7 +91,9 @@ class CodeV1(XmppAgent):
       elif re.match(self.regex_shutdown, prompt):
         logger.debug("SHUTDOWN command")
         self.kc.stop_channels()
+        self.kc = None
         self.km.shutdown_kernel()
+        self.km = None
         return "Shut down the kernel."
 
       else:

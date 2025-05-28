@@ -40,14 +40,16 @@ ENV CHROME_BIN=/usr/bin/chromium \
 RUN npm i -g nodemon
 RUN pip install --upgrade pip && \
     pip install \
+      setuptools==65.5.0 \
+      wheel==0.45.1 \
       nltk==3.9.1 \
       playwright==1.51.0 \
       ipython==9.0.2 \
       ipykernel==6.29.5 \
-      setuptools==65.5.0 \
-      wheel
+      bash_kernel==0.10.0
 RUN python -m nltk.downloader punkt punkt_tab averaged_perceptron_tagger_eng
 RUN python -m ipykernel install --user --name python3
+RUN python -m bash_kernel.install
 RUN playwright install --with-deps
 RUN npm i -g node-gyp
 RUN npm i -g ijavascript

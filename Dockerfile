@@ -1,4 +1,13 @@
-FROM python:3.12.9-slim-bookworm
+# FROM python:3.12.9-slim-bookworm
+
+# NOTE: python:3.11 solves the error on install:
+#
+#   > AttributeError: module 'pkgutil' has no attribute 'ImpImporter'.
+#
+#   This happens because pkgutil.ImpImporter was removed in Python 3.12,
+#   but libmagic==1.0, google-search-results==2.4.2, langdetect==1.0.9
+#   are still referencing it, likely via its use of an older setuptools or pkg_resources.
+FROM python:3.11-slim-bookworm
 
 ENV LANG=C.UTF-8 PYTHONIOENCODING=UTF-8 PYTHONUNBUFFERED=1
 ENV PATH="/root/.local/bin:${PATH}"
@@ -6,12 +15,17 @@ ENV PATH="/root/.local/bin:${PATH}"
 RUN apt-get update --yes && \
     apt-get upgrade --yes && \
     apt-get install --yes --no-install-recommends python3-dev \
-            curl ca-certificates gcc g++ make \
+            curl ca-certificates gcc g++ make gnupg \
             npm wget libmagic1 chromium chromium-driver \
             libreoffice \
             tesseract-ocr \
-            && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+            libzmq3-dev \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    # && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Verify
+RUN node -v && npm -v
 
 # Install Rust using rustup
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -23,7 +37,6 @@ ENV CHROME_BIN=/usr/bin/chromium \
     BROWSER=/usr/bin/chromium \
     DISPLAY=:99
 
-# RUN npm i -g nodemon ijavascript
 RUN npm i -g nodemon
 RUN pip install --upgrade pip && \
     pip install \
@@ -31,12 +44,14 @@ RUN pip install --upgrade pip && \
       playwright==1.51.0 \
       ipython==9.0.2 \
       ipykernel==6.29.5 \
-      && \
-    python -m nltk.downloader punkt punkt_tab averaged_perceptron_tagger_eng && \
-    python -m ipykernel install --user --name python3 && \
-    playwright install --with-deps
-    # && \
-    # ijsinstall --install=global
+      setuptools==65.5.0 \
+      wheel
+RUN python -m nltk.downloader punkt punkt_tab averaged_perceptron_tagger_eng
+RUN python -m ipykernel install --user --name python3
+RUN playwright install --with-deps
+RUN npm i -g node-gyp
+RUN npm i -g ijavascript
+RUN ijsinstall --install=global
 
 WORKDIR /opt/app/
 

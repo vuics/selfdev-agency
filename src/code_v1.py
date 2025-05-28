@@ -119,6 +119,9 @@ class CodeV1(XmppAgent):
             logger.debug(f"execution_state: {content_obj.get('execution_state')}")
             break
 
+        if content == '':
+          content = ' '
+
         return content
 
     except Exception as e:

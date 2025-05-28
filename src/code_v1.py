@@ -26,6 +26,11 @@ class CodeV1(XmppAgent):
     try:
       self.code = self.config.options.code
       logger.debug(f'self.code: {self.code}')
+      self.env = {
+        **(os.environ.copy()),
+        **(getattr(self.config.options, "env", {})),
+      }
+      logger.debug(f'self.env: {self.env}')
 
       self.regex_start = re.compile(self.code.commands["start"])
       self.regex_restart = re.compile(self.code.commands["restart"])
@@ -35,7 +40,7 @@ class CodeV1(XmppAgent):
       self.check_kernel()
 
       self.km = KernelManager(kernel_name=self.code.kernel)
-      self.km.start_kernel(env=self.config.options.env)
+      self.km.start_kernel(env=self.env)
       self.kc = self.km.client()
       self.kc.start_channels()
 
@@ -59,37 +64,30 @@ class CodeV1(XmppAgent):
 
       self.check_kernel()
 
-      if not hasattr(self, 'km') or self.km is None:
-        raise Exception('Kernel is not initialized')
-
-      if not hasattr(self, 'kc') or self.kc is None:
-        raise Exception('Kernel client channels are not initialized')
-
       if re.match(self.regex_start, prompt):
         logger.debug("START command")
-        self.km.start_kernel(env=self.config.options.env)
+        self.km = KernelManager(kernel_name=self.code.kernel)
+        self.km.start_kernel(env=self.env)
         self.kc = self.km.client()
         self.kc.start_channels()
         return "Started the kernel."
 
-      elif re.match(self.regex_restart, prompt):
+      if re.match(self.regex_restart, prompt):
         logger.debug("RESTART command")
         self.kc.stop_channels()
-        self.km.shutdown_kernel(now=True)
-        self.km.start_kernel(env=self.config.options.env)
+        self.km.restart_kernel(env=self.env)
         self.kc = self.km.client()
         self.kc.start_channels()
-        await asyncio.to_thread(self.kc.wait_for_ready, timeout=10)
         return "Restarted the kernel."
 
-      elif re.match(self.regex_reconnect, prompt):
+      if re.match(self.regex_reconnect, prompt):
         logger.debug("RECONNECT command")
         self.kc.stop_channels()
         self.kc = self.km.client()
         self.kc.start_channels()
         return "Reconnected to the kernel."
 
-      elif re.match(self.regex_shutdown, prompt):
+      if re.match(self.regex_shutdown, prompt):
         logger.debug("SHUTDOWN command")
         self.kc.stop_channels()
         self.kc = None
@@ -97,53 +95,58 @@ class CodeV1(XmppAgent):
         self.km = None
         return "Shut down the kernel."
 
-      else:
-        msg_id = self.kc.execute(prompt)
-        logger.debug(f"msg_id: {msg_id}")
-        while True:
-          msg = await loop.run_in_executor(None, self.kc.get_iopub_msg)
-          logger.debug(f"msg: {msg}")
+      if not hasattr(self, 'km') or self.km is None:
+        raise Exception('Kernel is not initialized')
 
-          msg_type = msg.get('msg_type')
-          content_obj = msg.get('content', {})
+      if not hasattr(self, 'kc') or self.kc is None:
+        raise Exception('Kernel channels are not initialized')
 
-          if msg_type == 'stream':
-            text = content_obj.get('text', '')
-            content += text
-            logger.debug(f"STDOUT: {text}")
+      msg_id = self.kc.execute(prompt)
+      logger.debug(f"msg_id: {msg_id}")
+      while True:
+        msg = await loop.run_in_executor(None, self.kc.get_iopub_msg)
+        logger.debug(f"msg: {msg}")
 
-          elif msg_type == 'execute_result':
-            data = content_obj.get('data', {}).get('text/plain', '')
-            content += data
-            logger.debug(f"RESULT: {data}")
+        msg_type = msg.get('msg_type')
+        content_obj = msg.get('content', {})
 
-          elif msg_type == 'display_data':
-            text_data = content_obj.get('data', {}).get('text/plain')
-            image_data = content_obj.get('data', {}).get('image/png')
-            if image_data:
-              # img_tag = f'<img src="data:image/png;base64,{image_data}" alt="Plot Image"/>'
-              # content += "\n" + img_tag
-              # logger.debug("DISPLAY IMAGE embedded as base64 data URI.")
-              markdown_img = f'![Plot Image](data:image/png;base64,{image_data})'
-              content += "\n" + markdown_img
-              logger.debug("DISPLAY IMAGE received (PNG).")
-            if text_data:
-              content += "\n" + text_data
-              logger.debug(f"DISPLAY TEXT: {text_data}")
+        if msg_type == 'stream':
+          text = content_obj.get('text', '')
+          content += text
+          logger.debug(f"STDOUT: {text}")
 
-          elif msg_type == 'error':
-            error = content_obj.get('evalue', '')
-            content += f"\nError: {error}"
-            logger.debug(f"ERROR: {error}")
+        elif msg_type == 'execute_result':
+          data = content_obj.get('data', {}).get('text/plain', '')
+          content += data
+          logger.debug(f"RESULT: {data}")
 
-          elif msg_type == 'status' and content_obj.get('execution_state') == 'idle':
-            logger.debug(f"execution_state: {content_obj.get('execution_state')}")
-            break
+        elif msg_type == 'display_data':
+          text_data = content_obj.get('data', {}).get('text/plain')
+          image_data = content_obj.get('data', {}).get('image/png')
+          if image_data:
+            # img_tag = f'<img src="data:image/png;base64,{image_data}" alt="Plot Image"/>'
+            # content += "\n" + img_tag
+            # logger.debug("DISPLAY IMAGE embedded as base64 data URI.")
+            markdown_img = f'![Plot Image](data:image/png;base64,{image_data})'
+            content += "\n" + markdown_img
+            logger.debug("DISPLAY IMAGE received (PNG).")
+          if text_data:
+            content += "\n" + text_data
+            logger.debug(f"DISPLAY TEXT: {text_data}")
 
-        if content == '':
-          content = ' '
+        elif msg_type == 'error':
+          error = content_obj.get('evalue', '')
+          content += f"\nError: {error}"
+          logger.debug(f"ERROR: {error}")
 
-        return content
+        elif msg_type == 'status' and content_obj.get('execution_state') == 'idle':
+          logger.debug(f"execution_state: {content_obj.get('execution_state')}")
+          break
+
+      if content == '':
+        content = ' '
+
+      return content
 
     except Exception as e:
       logger.error(f"CodeV1 error: {e}")

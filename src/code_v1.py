@@ -35,7 +35,7 @@ class CodeV1(XmppAgent):
       self.check_kernel()
 
       self.km = KernelManager(kernel_name=self.code.kernel)
-      self.km.start_kernel()
+      self.km.start_kernel(env=self.config.options.env)
       self.kc = self.km.client()
       self.kc.start_channels()
 
@@ -60,25 +60,26 @@ class CodeV1(XmppAgent):
       self.check_kernel()
 
       if not hasattr(self, 'km') or self.km is None:
-          raise Exception('Kernel is not initialized')
+        raise Exception('Kernel is not initialized')
 
       if not hasattr(self, 'kc') or self.kc is None:
-          raise Exception('Kernel client channels are not initialized')
+        raise Exception('Kernel client channels are not initialized')
 
       if re.match(self.regex_start, prompt):
         logger.debug("START command")
-        self.km.start_kernel()
+        self.km.start_kernel(env=self.config.options.env)
         self.kc = self.km.client()
         self.kc.start_channels()
         return "Started the kernel."
 
       elif re.match(self.regex_restart, prompt):
         logger.debug("RESTART command")
-        self.km.restart_kernel()
-        await asyncio.sleep(3)
         self.kc.stop_channels()
+        self.km.shutdown_kernel(now=True)
+        self.km.start_kernel(env=self.config.options.env)
         self.kc = self.km.client()
         self.kc.start_channels()
+        await asyncio.to_thread(self.kc.wait_for_ready, timeout=10)
         return "Restarted the kernel."
 
       elif re.match(self.regex_reconnect, prompt):

@@ -92,3 +92,5 @@ qiskit-ibm-runtime==0.39.0
 # qiskit-aer==0.17.0
 # qiskit-aer-gpu==0.15.1
 # qiskit-aer-gpu-cu11==0.17.0
+
+hvac==2.3.0

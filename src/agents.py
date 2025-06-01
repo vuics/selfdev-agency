@@ -45,6 +45,9 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import ConnectionFailure
 import redis.asyncio as redis
 from box import Box
+import hvac
+
+from helpers import str_to_bool
 
 # Import agent classes
 from xmpp_agent import XmppAgent
@@ -84,6 +87,13 @@ CONTAINER_ID = os.getenv("CONTAINER_ID", os.getenv("HOSTNAME", str(uuid.uuid4())
 
 FILTER_ARCHETYPES = json.loads(os.getenv('FILTER_ARCHETYPES', '[ ]'))
 
+VAULT_ENABLE = str_to_bool(os.getenv("VAULT_ENABLE", "false"))
+VAULT_ADDR = os.getenv("VAULT_ADDR", "http://127.0.0.1:8200")
+VAULT_TOKEN = os.getenv("VAULT_TOKEN", "(not-set)")
+VAULT_UNSEAL = str_to_bool(os.getenv("VAULT_UNSEAL", "true"))
+VAULT_KEY_THRESHOLD = int(os.getenv("VAULT_KEY_THRESHOLD", "3"))
+VAULT_UNSEAL_KEYS = os.getenv("VAULT_UNSEAL_KEYS", "(not-set),(not-set),(not-set),(not-set),(not-set)").split(',')
+
 
 # Configure logging
 logging.basicConfig(
@@ -112,6 +122,9 @@ running_agents = {}
 # Redis client for distributed locks
 redis_client = None
 
+# HashiCorp Vault client for secrets ({ valueFromVault: "vaultKey" })
+vault_client = None
+
 
 class AgentConfig:
   """Python representation of the MongoDB agent schema"""
@@ -125,6 +138,7 @@ class AgentConfig:
     self.updatedAt = doc.get('updatedAt', None)
     self.name = self.options.name
     self.joinRooms = self.options.joinRooms
+    self.replace_vault_values(self.options)
 
   def is_valid(self) -> bool:
     """Check if the agent configuration is valid and should be deployed"""
@@ -137,6 +151,38 @@ class AgentConfig:
 
   def __repr__(self) -> str:
     return self.__str__()
+
+  def get_vault_value(self, vault_key: str) -> str:
+    if not vault_client:
+      return ''
+    read_response = vault_client.secrets.kv.read_secret_version(path=f'user_{self.userId}')
+    vault_value = read_response['data']['data'][vault_key]
+    return vault_value
+
+  def replace_vault_values(self, obj: Any):
+    if not vault_client:
+      return ''
+
+    if isinstance(obj, Box):
+      for key in list(obj.keys()):
+        value = obj[key]
+        # Check for {'valueFromVault': 'vaultKey'} pattern
+        if isinstance(value, dict) and set(value.keys()) == {"valueFromVault"}:
+          vault_key = value["valueFromVault"]
+          obj[key] = self.get_vault_value(vault_key)
+        else:
+          self.replace_vault_values(value)
+    elif isinstance(obj, dict):
+      for key in list(obj.keys()):
+        value = obj[key]
+        if isinstance(value, dict) and set(value.keys()) == {"valueFromVault"}:
+          vault_key = value["valueFromVault"]
+          obj[key] = self.get_vault_value(vault_key)
+        else:
+          self.replace_vault_values(value)
+    elif isinstance(obj, list):
+      for item in obj:
+        self.replace_vault_values(item)
 
 
 async def connect_to_redis():
@@ -169,6 +215,61 @@ async def connect_to_mongodb() -> AsyncIOMotorClient:
   except ConnectionFailure as e:
     logger.error(f"Failed to connect to MongoDB: {e}")
     raise
+
+
+async def connect_to_vault(retries: int = 20, base_delay: float = 1.0, max_delay: float = 60.0):
+  """Connect to Vault with adaptive exponential backoff delay and jitter."""
+  global vault_client
+
+  if not VAULT_ENABLE:
+    logger.warning("Vault is disabled.")
+    return
+
+  for attempt in range(1, retries + 1):
+    try:
+      vault_client = hvac.Client(url=VAULT_ADDR, token=VAULT_TOKEN)
+
+      if VAULT_UNSEAL:
+        is_sealed = vault_client.sys.is_sealed()
+        logger.info(f"Vault is_sealed (before): {is_sealed}")
+        if is_sealed:
+          for i, key in enumerate(VAULT_UNSEAL_KEYS[:VAULT_KEY_THRESHOLD]):
+            if not key or key.strip().lower() == "(not-set)":
+              logger.warning(f"Vault unseal key {i + 1} is not set. Skipping.")
+              continue
+            try:
+              response = vault_client.sys.submit_unseal_key(key.strip())
+              logger.debug(f"Vault unseal response {i + 1}: {response}")
+              if not response.get("sealed", True):
+                logger.info(f"Vault unsealed after {i + 1} keys.")
+                break
+            except Exception as e:
+              logger.error(f"Error submitting unseal key {i + 1}: {e}")
+          is_sealed = vault_client.sys.is_sealed()
+          logger.info(f"Vault is_sealed (after): {is_sealed}")
+        else:
+          logger.info("Vault is already unsealed.")
+      else:
+        logger.info("Vault unsealing is disabled by VAULT_UNSEAL=false")
+
+      if vault_client.is_authenticated():
+        logger.info(f"Connected to Vault at {VAULT_ADDR}, is_authenticated: True")
+        return vault_client
+      else:
+        logger.warning(f"Attempt {attempt}: Authentication failed.")
+    except Exception as e:
+      logger.error(f"Attempt {attempt}: Exception during Vault connection: {e}")
+
+    if attempt < retries:
+      # Exponential backoff with jitter
+      delay = min(base_delay * (2 ** (attempt - 1)), max_delay)
+      jitter = random.uniform(0.5, 1.5)
+      adaptive_delay = delay * jitter
+      logger.info(f"Retrying in {adaptive_delay:.2f} seconds...")
+      await asyncio.sleep(adaptive_delay)
+
+  logger.critical("All attempts to connect to Vault failed.")
+  raise ConnectionError("Failed to authenticate with Vault after multiple attempts.")
 
 
 async def get_agent_configs(db) -> List[AgentConfig]:
@@ -511,6 +612,8 @@ async def main():
     db = mongo_client[db_name]
 
     await connect_to_redis()
+
+    await connect_to_vault()
 
     logger.info(f"Starting XMPP agency with container ID: {CONTAINER_ID}")
 

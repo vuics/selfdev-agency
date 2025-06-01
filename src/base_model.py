@@ -202,18 +202,18 @@ provider_list = {
 }
 
 
-def init_model(*, model_provider, model_name):
+def init_model(*, model_provider, model_name, api_key):
   """ Initialize langchain chat model """
   print('model_provider:', model_provider)
   print('model_name:', model_name)
-  if model_provider not in provider_list:
-    print(f"Unknown LLM provider: {model_provider}")
 
   print('provider attributes:', provider_list[model_provider])
   print('provider requires envs:', provider_list[model_provider]['requires_envs'])
-  for env_var in provider_list[model_provider]['requires_envs']:
-    if not os.getenv(env_var):
-      raise ValueError(f"For {model_provider}, {env_var} is not set")
+  # NOTE: having api_key argument makes it unnecessary to set api keys from env vars.
+  #
+  # for env_var in provider_list[model_provider]['requires_envs']:
+  #   if not os.getenv(env_var):
+  #     raise ValueError(f"For {model_provider}, {env_var} is not set")
 
   model = None
   if model_provider == "ollama":
@@ -221,29 +221,36 @@ def init_model(*, model_provider, model_name):
       model=model_name,
       temperature=0,
       base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+      api_key=api_key if api_key else None,
     )
   elif model_provider == "azure":
     model = AzureChatOpenAI(
       azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
       azure_deployment=model_name,
       openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+      api_key=api_key if api_key else None,
     )
   elif model_provider == "google_genai":
     model = ChatGoogleGenerativeAI(
-        model=model_name,
-        temperature=0,
-        max_tokens=None,
-        timeout=None,
-        max_retries=2,
+      model=model_name,
+      temperature=0,
+      max_tokens=None,
+      timeout=None,
+      max_retries=2,
+      api_key=api_key if api_key else None,
     )
   elif model_provider == "ibm":
     model = ChatWatsonx(
       model_id=model_name,
       url=os.getenv("IBM_URL"),
-      project_id=os.getenv("IBM_PROJECT_ID")
+      project_id=os.getenv("IBM_PROJECT_ID"),
+      api_key=api_key if api_key else None,
     )
   elif model_provider == "databricks":
-    model = ChatDatabricks(endpoint=model_name)
+    model = ChatDatabricks(
+      endpoint=model_name,
+      api_key=api_key if api_key else None,
+    )
   elif model_provider == "huggingface":
     llm = HuggingFaceEndpoint(
       repo_id=model_name,
@@ -252,11 +259,20 @@ def init_model(*, model_provider, model_name):
       do_sample=False,
       repetition_penalty=1.03,
     )
-    model = ChatHuggingFace(llm=llm)
+    model = ChatHuggingFace(
+      llm=llm,
+      api_key=api_key if api_key else None,
+    )
   elif model_provider == "ai21":
-    model = ChatAI21(model="jamba-instruct", temperature=0)
+    model = ChatAI21(
+      model="jamba-instruct",
+      temperature=0,
+      api_key=api_key if api_key else None,
+    )
   elif model_provider == "upstage":
-    model = ChatUpstage()
+    model = ChatUpstage(
+      api_key=api_key if api_key else None,
+    )
   elif model_provider == "xai":
     model = ChatXAI(
       model=model_name,
@@ -269,6 +285,7 @@ def init_model(*, model_provider, model_name):
     model = ChatPerplexity(
       model=model_name,
       temperature=0,
+      api_key=api_key if api_key else None,
     )
   # elif model_provider == "llamacpp":
   #   model = ChatLlamaCpp(
@@ -282,29 +299,45 @@ def init_model(*, model_provider, model_name):
   #     repeat_penalty=1.5,
   #     top_p=0.5,
   #     verbose=True,
+  #     api_key=api_key if api_key else None,
   #   )
   # elif model_provider == "openai":
-  #   model = ChatOpenAI(model=model_name, api_key=os.getenv("OPENAI_API_KEY"))
+  #   model = ChatOpenAI(
+  #     model=model_name,
+  #     api_key=api_key if api_key else None,
+  #   )
   # elif model_provider == "anthropic":
-  #   model = ChatAnthropic(model=model_name, api_key=os.getenv("ANTHROPIC_API_KEY"))
+  #   model = ChatAnthropic(
+  #     model=model_name,
+  #     api_key=api_key if api_key else None,
+  #   )
   else:
-    model = init_chat_model(model_name, model_provider=model_provider)
+    model = init_chat_model(
+      model_name,
+      model_provider=model_provider,
+      api_key=api_key if api_key else None,
+    )
 
   print('model:', model)
   return model
 
 
-def init_embeddings(*, model_provider, embeddings_name):
+def init_embeddings(*, model_provider, embeddings_name, api_key):
   """ Initialize langchain chat model """
   print('embeddings_name:', embeddings_name)
 
   embeddings = None
   if model_provider == "openai":
-    embeddings = OpenAIEmbeddings(model=embeddings_name)
+    embeddings = OpenAIEmbeddings(
+      model=embeddings_name,
+      api_key=api_key if api_key else None,
+    )
   elif model_provider == "ollama":
-    embeddings = OllamaEmbeddings(model=embeddings_name,
-                                  base_url=os.getenv("OLLAMA_BASE_URL",
-                                                     "http://localhost:11434"))
+    embeddings = OllamaEmbeddings(
+      model=embeddings_name,
+      base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+      api_key=api_key if api_key else None,
+    )
   else:
     raise ValueError(f"Unknown Embeddings model provider: {model_provider}")
 

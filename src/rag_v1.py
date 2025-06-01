@@ -69,15 +69,21 @@ class RagV1(XmppAgent):
     await super().start()
     # Load LLM and embeddings
     try:
-      self.model = init_model(model_provider=self.config.options.model.provider,
-                              model_name=self.config.options.model.name)
+      self.model = init_model(
+        model_provider=self.config.options.model.provider,
+        model_name=self.config.options.model.name,
+        api_key=self.config.options.model.apiKey if self.config.options.model.apiKey else None,
+      )
       logger.debug(f"self.model: {self.model}")
     except Exception as e:
       logger.error(f"Error initializing model: {e}")
 
     try:
-      self.embeddings = init_embeddings(model_provider=self.config.options.embeddings.provider,
-                                        embeddings_name=self.config.options.embeddings.name)
+      self.embeddings = init_embeddings(
+        model_provider=self.config.options.embeddings.provider,
+        embeddings_name=self.config.options.embeddings.name,
+        api_key=self.config.options.embeddings.apiKey if self.config.options.embeddings.apiKey else None,
+      )
     except Exception as e:
       logger.error(f"Error initializing embeddings model: {e}")
 

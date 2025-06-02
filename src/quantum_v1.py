@@ -42,8 +42,8 @@ class QuantumV1(XmppAgent):
 
       self.service = QiskitRuntimeService(
         channel='ibm_cloud',
-        instance=IBM_CLOUD_QISKIT_INSTANCE,
-        token=IBM_CLOUD_API_KEY,
+        instance=self.qiskitConfig.instance,
+        token=self.qiskitConfig.apiKey,
       )
       instances = self.service.instances()
       logger.debug(f'Instances: {instances}')

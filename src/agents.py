@@ -91,7 +91,6 @@ VAULT_ENABLE = str_to_bool(os.getenv("VAULT_ENABLE", "false"))
 VAULT_ADDR = os.getenv("VAULT_ADDR", "http://127.0.0.1:8200")
 VAULT_TOKEN = os.getenv("VAULT_TOKEN", "(not-set)")
 VAULT_UNSEAL = str_to_bool(os.getenv("VAULT_UNSEAL", "true"))
-VAULT_KEY_THRESHOLD = int(os.getenv("VAULT_KEY_THRESHOLD", "3"))
 VAULT_UNSEAL_KEYS = os.getenv("VAULT_UNSEAL_KEYS", "(not-set),(not-set),(not-set),(not-set),(not-set)").split(',')
 
 
@@ -233,7 +232,7 @@ async def connect_to_vault(retries: int = 20, base_delay: float = 1.0, max_delay
         is_sealed = vault_client.sys.is_sealed()
         logger.info(f"Vault is_sealed (before): {is_sealed}")
         if is_sealed:
-          for i, key in enumerate(VAULT_UNSEAL_KEYS[:VAULT_KEY_THRESHOLD]):
+          for i, key in enumerate(VAULT_UNSEAL_KEYS):
             if not key or key.strip().lower() == "(not-set)":
               logger.warning(f"Vault unseal key {i + 1} is not set. Skipping.")
               continue
@@ -248,7 +247,7 @@ async def connect_to_vault(retries: int = 20, base_delay: float = 1.0, max_delay
           is_sealed = vault_client.sys.is_sealed()
           logger.info(f"Vault is_sealed (after): {is_sealed}")
         else:
-          logger.info("Vault is already unsealed.")
+          logger.info("Vault was already unsealed.")
       else:
         logger.info("Vault unsealing is disabled by VAULT_UNSEAL=false")
 

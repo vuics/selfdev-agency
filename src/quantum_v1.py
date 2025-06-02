@@ -26,8 +26,8 @@ logger = logging.getLogger("QuantumV1")
 # Load env vars
 load_dotenv()
 
-IBM_CLOUD_API_KEY = os.getenv("IBM_CLOUD_API_KEY")
-IBM_CLOUD_QISKIT_INSTANCE = os.getenv("IBM_CLOUD_QISKIT_INSTANCE")
+# IBM_CLOUD_API_KEY = os.getenv("IBM_CLOUD_API_KEY")
+# IBM_CLOUD_QISKIT_INSTANCE = os.getenv("IBM_CLOUD_QISKIT_INSTANCE")
 
 
 class QuantumV1(XmppAgent):

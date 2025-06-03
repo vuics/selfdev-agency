@@ -21,7 +21,7 @@ RUN apt-get update --yes && \
             tesseract-ocr \
             libzmq3-dev \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
+    && apt-get install -y nodejs
     # && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Verify

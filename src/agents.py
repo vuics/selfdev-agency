@@ -90,7 +90,7 @@ FILTER_ARCHETYPES = json.loads(os.getenv('FILTER_ARCHETYPES', '[ ]'))
 VAULT_ENABLE = str_to_bool(os.getenv("VAULT_ENABLE", "false"))
 VAULT_ADDR = os.getenv("VAULT_ADDR", "http://127.0.0.1:8200")
 VAULT_TOKEN = os.getenv("VAULT_TOKEN", "(not-set)")
-VAULT_UNSEAL = str_to_bool(os.getenv("VAULT_UNSEAL", "true"))
+VAULT_UNSEAL = str_to_bool(os.getenv("VAULT_UNSEAL", "false"))
 VAULT_UNSEAL_KEYS = os.getenv("VAULT_UNSEAL_KEYS", "(not-set),(not-set),(not-set),(not-set),(not-set)").split(',')
 
 

@@ -28,11 +28,13 @@ class XmppAgent(ClientXMPP):
   A Base XMPP Agent
   """
 
-  def __init__(self, *, host, user, password, muc_host, join_rooms, nick, config):
-    jid = f"{user}@{host}"
+  def __init__(self, *, host, user, password, muc_host, join_rooms, nick, config, ownername):
+    jid = f"{user}@{ownername}.{host}"
     super().__init__(jid, password)
+    # ClientXMPP.__init__(self, jid, password)
 
-    self.host = host
+    self.host = f"{ownername}.{host}"
+    # self.host = host
     self.user = user
     self.jid = jid
     self.password = password
@@ -41,6 +43,12 @@ class XmppAgent(ClientXMPP):
     self.nick = nick
     self.join_room_jids = [f"{room}@{muc_host}" for room in self.join_rooms]
     self.config = config
+    self.ownername = ownername
+
+    logger.debug(f'jid: {self.jid}')
+    logger.debug(f'host: {self.host}')
+    logger.debug(f'user: {self.user}')
+    logger.debug(f'ownername: {self.ownername}')
 
     # Reconnection backoff variables
     self.reconnect_attempts = 0
@@ -131,6 +139,8 @@ class XmppAgent(ClientXMPP):
       if registered:
         logger.debug('User registered. Reconnect')
         await self.connect()
+      else:
+        logger.error(f'Error registering user: {self.jid}')
 
   async def register_user(self):
     logger.info(f'Register a new XMPP user with credentials> user: {self.user}, password: {self.password}')
@@ -147,6 +157,8 @@ class XmppAgent(ClientXMPP):
         )
       logger.debug(f'XMPP Registration Status Code: {response.status_code}')
       logger.debug(f'XMPP Registration Data: {response.text}')
+      if response.status_code >= 400:
+        return False
       return True
     except Exception as e:
       logger.error(f'XMPP registration error: {e}')
@@ -173,6 +185,7 @@ class XmppAgent(ClientXMPP):
       self.plugin['xep_0045'].join_muc(room_jid, self.nick)
 
   async def start(self):
+    await self.register_user()
     await self.connect()
 
   async def chat(self, *, prompt, reply_func=None):

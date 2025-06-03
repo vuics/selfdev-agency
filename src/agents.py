@@ -102,6 +102,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger("agents")
 
+# logging.getLogger("pymongo").setLevel(logging.WARNING)
+# logging.getLogger("motor").setLevel(logging.WARNING)
+logging.getLogger("pymongo").setLevel(logging.INFO)
+logging.getLogger("motor").setLevel(logging.INFO)
+
 # Map of agent class names to their actual classes
 ARCHETYPE_CLASSES = {
   "chat-v1.0": ChatV1,
@@ -127,7 +132,9 @@ vault_client = None
 
 class AgentConfig:
   """Python representation of the MongoDB agent schema"""
-  def __init__(self, doc: Dict[str, Any]):
+  def __init__(self, doc: Dict[str, Any], user):
+    self.doc = doc
+    self.user = user
     self.id = str(doc.get('_id'))
     self.userId = str(doc.get('userId'))
 
@@ -146,7 +153,8 @@ class AgentConfig:
                 (True if not FILTER_ARCHETYPES else self.archetype in FILTER_ARCHETYPES))
 
   def __str__(self) -> str:
-    return f"""{self.name}({self.archetype}, {self.deployed and 'deployed' or 'undeployed'}, {self.is_valid() and 'valid' or 'invalid'}) in {self.joinRooms}"""
+    # return f"""{self.name}({self.archetype}, {self.deployed and 'deployed' or 'undeployed'}, {self.is_valid() and 'valid' or 'invalid'}) in {self.joinRooms}"""
+    return f"{self.name}({self.archetype})"
 
   def __repr__(self) -> str:
     return self.__str__()
@@ -274,12 +282,13 @@ async def connect_to_vault(retries: int = 20, base_delay: float = 1.0, max_delay
 async def get_agent_configs(db) -> List[AgentConfig]:
   """Retrieve all agent configurations from MongoDB"""
   try:
-    agents_collection = db.agents
-    cursor = agents_collection.find({})
+    cursor = db.agents.find({})
     configs = []
 
     async for doc in cursor:
-      config = AgentConfig(doc)
+      user = await db.users.find_one({"_id": doc.get('userId')})
+      logger.debug('user:', user)
+      config = AgentConfig(doc, user)
       configs.append(config)
 
     logger.info(f"Retrieved {len(configs)} agent configurations")
@@ -453,6 +462,10 @@ async def start_agent(config: AgentConfig) -> Optional[XmppAgent]:
     # Get the appropriate agent class
     agent_class: Type[XmppAgent] = ARCHETYPE_CLASSES[config.archetype]
 
+    # logger.debug(f"config.user: {config.user}")
+    # logger.debug(f"config.user.xmpp: {config.user.get('xmpp')}")
+    # logger.debug(f"config.user.xmpp.user: {config.user.get('xmpp')['user']}")
+
     # Create and start the agent
     agent = agent_class(
       host=XMPP_HOST,
@@ -462,6 +475,7 @@ async def start_agent(config: AgentConfig) -> Optional[XmppAgent]:
       join_rooms=config.joinRooms,
       nick=config.name,  # Use agent name as XMPP nickname
       config=config,
+      ownername=(config.user.get('xmpp')['user']).lower(),
     )
     asyncio.create_task(agent.start())
 

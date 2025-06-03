@@ -147,7 +147,7 @@ class XmppAgent(ClientXMPP):
     try:
       async with httpx.AsyncClient() as client:
         response = await client.get(
-          f"{XMPP_COMMANDER_URL}/register",
+          f"{XMPP_COMMANDER_URL}/register-agent",
           params={
             "user": self.user,
             "password": self.password,

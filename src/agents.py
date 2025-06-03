@@ -287,7 +287,7 @@ async def get_agent_configs(db) -> List[AgentConfig]:
 
     async for doc in cursor:
       user = await db.users.find_one({"_id": doc.get('userId')})
-      logger.debug('user:', user)
+      # logger.debug(f'user: {user}')
       config = AgentConfig(doc, user)
       configs.append(config)
 

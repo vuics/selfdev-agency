@@ -102,10 +102,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("agents")
 
-# logging.getLogger("pymongo").setLevel(logging.WARNING)
-# logging.getLogger("motor").setLevel(logging.WARNING)
 logging.getLogger("pymongo").setLevel(logging.INFO)
 logging.getLogger("motor").setLevel(logging.INFO)
+logging.getLogger("slixmpp").setLevel(logging.INFO)
 
 # Map of agent class names to their actual classes
 ARCHETYPE_CLASSES = {
@@ -508,7 +507,7 @@ async def sync_agents(db):
   """Synchronize running agents with the database configuration"""
   configs = await get_agent_configs(db)
   logger.debug('sync_agents():')
-  logger.debug(f'🗂️ Configs: {configs}')
+  # logger.debug(f'🗂️ Configs: {configs}')
   logger.debug(f'🥚 BEFORE: running_agents: {running_agents}')
 
   # Track which agents should be running

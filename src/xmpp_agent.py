@@ -45,10 +45,10 @@ class XmppAgent(ClientXMPP):
     self.config = config
     self.ownername = ownername
 
-    logger.debug(f'jid: {self.jid}')
-    logger.debug(f'host: {self.host}')
-    logger.debug(f'user: {self.user}')
-    logger.debug(f'ownername: {self.ownername}')
+    # logger.debug(f'jid: {self.jid}')
+    # logger.debug(f'host: {self.host}')
+    # logger.debug(f'user: {self.user}')
+    # logger.debug(f'ownername: {self.ownername}')
 
     # Reconnection backoff variables
     self.reconnect_attempts = 0
@@ -179,7 +179,7 @@ class XmppAgent(ClientXMPP):
     """
     await self.get_roster()
     self.send_presence()
-    logger.debug('Session started')
+    # logger.debug('Session started')
     for room_jid in self.join_room_jids:
       logger.info(f'  Join room> jid: {room_jid},  nick: {self.nick}')
       self.plugin['xep_0045'].join_muc(room_jid, self.nick)

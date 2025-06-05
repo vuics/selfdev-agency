@@ -15,6 +15,8 @@ The assistant is based on the document:
 
 import logging
 import os
+import re
+
 from dotenv import load_dotenv
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_chroma import Chroma
@@ -60,6 +62,13 @@ GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 GOOGLE_TOKEN = os.getenv("GOOGLE_TOKEN", "./token.json")
 
 
+# Define state for application
+class State(TypedDict):
+  question: str
+  context: List[Document]
+  answer: str
+
+
 class RagV1(XmppAgent):
   '''
   RagV1 provides chat based on Retrieval-Augmented Generation
@@ -67,6 +76,27 @@ class RagV1(XmppAgent):
 
   async def start(self):
     await super().start()
+
+    try:
+      # logger.debug(f'self.config: {self.config}')
+      self.rag = self.config.options.rag
+      # logger.debug(f'self.rag: {self.rag}')
+
+      self.regex_get = re.compile(self.rag.commands["get"])
+      self.regex_count = re.compile(self.rag.commands["count"])
+      self.regex_loadText = re.compile(self.rag.commands["loadText"], re.MULTILINE)
+      self.regex_loadURL = re.compile(self.rag.commands["loadURL"], re.MULTILINE)
+      # self.regex_loadGDrive = re.compile(self.rag.commands["loadGDrive"])
+      self.regex_delete = re.compile(self.rag.commands["delete"])
+      logger.debug(f'regex_get: {self.regex_get}')
+      logger.debug(f'regex_count: {self.regex_count}')
+      logger.debug(f'regex_loadText: {self.regex_loadText}')
+      logger.debug(f'regex_loadURL: {self.regex_loadURL}')
+      # logger.debug(f'regex_loadGDrive: {self.regex_loadGDrive}')
+      logger.debug(f'regex_delete: {self.regex_delete}')
+    except Exception as e:
+      logger.error(f"Error initializing commands: {e}")
+
     # Load LLM and embeddings
     try:
       self.model = init_model(
@@ -89,32 +119,32 @@ class RagV1(XmppAgent):
 
     # Load vector store
     vector_store = None
-    logger.info(f"Vector store: {self.config.options.vectorStore}")
-    if self.config.options.vectorStore == "memory":
+    logger.info(f"Vector store: {self.config.options.rag.vectorStore}")
+    if self.config.options.rag.vectorStore == "memory":
       vector_store = InMemoryVectorStore(self.embeddings)
-    elif self.config.options.vectorStore == "chroma":
+    elif self.config.options.rag.vectorStore == "chroma":
       try:
-        collection_name = CHROMA_COLLECTION.format(self.config.id)
-        logger.info(f"chroma collection_name: {collection_name}")
-        chroma_client = chromadb.HttpClient(host=CHROMA_HOST,
-                                            port=CHROMA_PORT)
-        vector_store = Chroma(client=chroma_client,
-                              collection_name=collection_name,
-                              embedding_function=self.embeddings)
+        self.collection_name = CHROMA_COLLECTION.format(self.config.id)
+        logger.info(f"chroma collection_name: {self.collection_name}")
+        self.chroma_client = chromadb.HttpClient(host=CHROMA_HOST,
+                                                 port=CHROMA_PORT)
+        self.vector_store = Chroma(client=self.chroma_client,
+                                   collection_name=self.collection_name,
+                                   embedding_function=self.embeddings)
       except Exception as e:
         logger.error(f"Error creating Chroma client: {e}")
         raise
-    elif self.config.options.vectorStore == "chroma-dir":
+    elif self.config.options.rag.vectorStore == "chroma-dir":
       try:
-        collection_name = CHROMA_COLLECTION.format(self.config.id)
-        logger.info(f"chroma collection_name: {collection_name}")
-        vector_store = Chroma(persist_directory=CHROMA_DIRECTORY,
-                              collection_name=CHROMA_COLLECTION,
-                              embedding_function=self.embeddings)
+        self.collection_name = CHROMA_COLLECTION.format(self.config.id)
+        logger.info(f"chroma collection_name: {self.collection_name}")
+        self.vector_store = Chroma(persist_directory=CHROMA_DIRECTORY,
+                                   collection_name=self.collection_name,
+                                   embedding_function=self.embeddings)
       except Exception as e:
         logger.error(f"Error creating Chroma client: {e}")
         raise
-    elif self.config.options.vectorStore == "weaviate":
+    elif self.config.options.rag.vectorStore == "weaviate":
       try:
         weaviate_client = weaviate.connect_to_custom(
           http_host=WEAVIATE_HTTP_HOST,
@@ -129,7 +159,7 @@ class RagV1(XmppAgent):
         logger.error(f"Error creating Weaviate client: {e}")
         raise
     else:
-      raise Exception(f"Unknown vector store: {self.config.options.vectorStore}")
+      raise Exception(f"Unknown vector store: {self.config.options.rag.vectorStore}")
 
     # Document Loaders
     #
@@ -141,9 +171,9 @@ class RagV1(XmppAgent):
     #   { enable: true, kind: "google-drive", folderId: "", recursive: true, filesIds: [ "" ], documentIds: [ "1pi95Wc03l8poJoIJpRXniILIPNGIbDn9VMBfmZPdgZY","1PdeQWPP1EZMXCnNNeMAdUhuRQffTbigfKU3bYC3hGjA","12adeT8_7-9ZP7mO205zFlLxU1PjrvtMviV7uwhRunAY","17U3QGlmaKxY_DoXkSZCC5EhSQ7iVehBJSWVifxRpLPo","114agEJugBBjhOoY8Tj0o0tXdntLg94kyGLPmNBemq1A","1DOwKaugogQy-yR9H-rAd-gqPDIfcDV7B3s6orvytKso","1H9OjmYsSJ8Bq2HE4X3bMidranqvkjqP-kLjkcVxQIGA","1zKuMfvQx0Lq_cJgJmzssOZnIHi7hLEpcILsDq7IPOAY","1iJQQ-__EGdsApjFAPJu2c0-raDnCebcXq33UgWL-2CM","1j1_cTw01NUO7tiVWfRADFV2WddZV-ttORupmkMd66vs","16PrhlaVbOqWL-J6N2zKBzKxROICbbf_R7FCoNEmpXac","1RBULCW0TXrYjTL8i9rFcZXu6cvMIkYmJr4cMqf1B9eI","1ozAo6OGcJRj96pk6OXNLCo-cBHT-vZaJ0PEckEAJzUc","1Oq1T9H6EM-XKmQ1FjGTC7SvZRXoz6k1Z1QLBnx6osDY","1lgvjB6RKYviPHC9sgEaCpZc-lbiBTZ1XWEop3Vbq_iQ","1c1cJSqJKJDYj-w8nSWXoc43uFlyNshqDTscMkk-mFuk","1EfDV6cVE4ipe4ZiAFYhFd4jPsCOrYJ-3ENT0wYf1IDk","1882BF98pW90cb5tS-nCyEuOB2eXO7EOTrNJdyykdC3Q","162yIECys1DdLF88jqfMm9kTvt7HoYs47ixPVqxTir94","15JwiNM-28Z9L-ZMvnLaqXd80yxOO9hAmZ6mU87Kk5zA","1MCPlsbmsyTU_h2ehDiqcLSaDOAGoIIJc4KVz7Nh_J9M" ] },
     # ]
 
-    self.docs = []
+    docs = []
 
-    for loader in self.config.options.loaders:
+    for loader in self.config.options.rag.loaders:
       logger.debug(f"loader: {loader}")
       if not loader.enable:
         continue
@@ -154,7 +184,7 @@ class RagV1(XmppAgent):
             text_loader = TextLoader(file_path)
             docs_loaded = text_loader.load()
             logger.info(f"TextLoader> documents loaded from {file_path}: {len(docs_loaded)}")
-            self.docs += docs_loaded
+            docs += docs_loaded
         except json.JSONDecodeError as e:
           logger.error(f"Error parsing TEXT_LOADER_FILES JSON: {e}")
         except Exception as e:
@@ -169,13 +199,13 @@ class RagV1(XmppAgent):
         )
         docs_loaded = directory_loader.load()
         logger.info(f"DirectoryLoader> documents loaded: {len(docs_loaded)}")
-        self.docs += docs_loaded
+        docs += docs_loaded
 
       if loader.kind == "web":
         web_loader = WebBaseLoader(web_paths=tuple(loader.urls))
         docs_loaded = web_loader.load()
         logger.info(f"WebBaseLoader> documents loaded: {len(docs_loaded)}")
-        self.docs += docs_loaded
+        docs += docs_loaded
 
       if loader.kind == 'google-drive':
         # Enable Google Docs API:
@@ -194,42 +224,42 @@ class RagV1(XmppAgent):
         )
         docs_loaded = gdrive_loader.load()
         logger.info(f"GoogleDriveLoader> documents loaded: {len(docs_loaded)}")
-        self.docs += docs_loaded
+        docs += docs_loaded
 
-    logger.info(f"Total documents loaded: {len(self.docs)}")
+    logger.info(f"Total documents loaded: {len(docs)}")
 
     # Retrieval Augmented Generation (RAG)
 
-    if self.docs:
-      text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-      all_splits = text_splitter.split_documents(self.docs)
-      _ = vector_store.add_documents(documents=all_splits)  # Index chunks
+    if docs:
+      self.add_docs(docs)
 
     self.prompt = ChatPromptTemplate.from_template(self.config.options.systemMessage)
     logger.debug(f"self.prompt: {self.prompt}")
 
-    # Define state for application
-    class State(TypedDict):
-      question: str
-      context: List[Document]
-      answer: str
-
-    # Define application steps
-    def retrieve(state: State):
-      retrieved_docs = vector_store.similarity_search(state["question"])
-      return {"context": retrieved_docs}
-
-    def generate(state: State):
-      docs_content = "\n\n".join(doc.page_content for doc in state["context"])
-      messages = self.prompt.invoke({"question": state["question"], "context": docs_content})
-      response = self.model.invoke(messages)
-      return {"answer": response.content}
-
-    # Compile application and test
-    graph_builder = StateGraph(State).add_sequence([retrieve, generate])
+    # Define application steps, compile application and test
+    graph_builder = StateGraph(State).add_sequence([self.retrieve, self.generate])
     graph_builder.add_edge(START, "retrieve")
     self.graph = graph_builder.compile()
     logger.info('Graph compiled')
+
+  def add_docs(self, docs):
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    # logger.debug(f"text_splitter: {text_splitter}")
+    all_splits = text_splitter.split_documents(docs)
+    # logger.debug(f"all_splits: {all_splits}")
+    added_ids = self.vector_store.add_documents(documents=all_splits)  # Index chunks
+    # logger.debug(f"added_ids: {added_ids}")
+    return added_ids
+
+  def retrieve(self, state: State):
+    retrieved_docs = self.vector_store.similarity_search(state["question"])
+    return {"context": retrieved_docs}
+
+  def generate(self, state: State):
+    docs_content = "\n\n".join(doc.page_content for doc in state["context"])
+    messages = self.prompt.invoke({"question": state["question"], "context": docs_content})
+    response = self.model.invoke(messages)
+    return {"answer": response.content}
 
   async def chat(self, *, prompt, reply_func=None):
     if not hasattr(self, 'graph'):
@@ -237,7 +267,57 @@ class RagV1(XmppAgent):
 
     try:
       logger.debug(f"prompt: {prompt}")
-      # TODO: can we add a SystemMessage(SYSTEM_MESSAGE)?
+
+      if re.match(self.regex_get, prompt):
+        logger.debug("get command")
+        get_data = self.vector_store._collection.get()
+        return json.dumps(get_data)
+      elif re.match(self.regex_count, prompt):
+        logger.debug("count command")
+        count_data = self.vector_store._collection.count()
+        return json.dumps(count_data)
+      elif match := re.search(self.regex_loadText, prompt):
+        logger.debug("loadText command")
+        text = match.group(1)
+        logger.debug(f"Parsed text: {text}")
+        doc = Document(page_content=text, metadata={"source": "loadText command"})
+        logger.debug(f"doc: {doc}")
+        added_ids = self.add_docs([doc])
+        logger.debug(f"added_ids: {added_ids}")
+        return f"Loaded, ids={json.dumps(added_ids)}"
+      elif match := re.search(self.regex_loadURL, prompt):
+        logger.debug("loadURL command")
+        arguments = match.group(1)
+        logger.debug(f"arguments: {arguments}")
+        urls = [url.strip() for url in arguments.split(',')]
+        logger.debug(f"urls: {urls}")
+        web_loader = WebBaseLoader(web_paths=tuple(urls))
+        docs = web_loader.load()
+        logger.debug(f"docs: {docs}")
+        added_ids = self.add_docs(docs)
+        logger.debug(f"added_ids: {added_ids}")
+        return f"Loaded, ids={json.dumps(added_ids)}"
+      # elif re.match(self.regex_loadGDrive, prompt):
+      #   logger.debug("loadGDrive command")
+      #   return ''
+      elif re.match(self.regex_delete, prompt):
+        logger.debug("delete command")
+        doc_count = self.vector_store._collection.count()
+        logger.debug(f"Deleting {doc_count} documents from vector store...")
+
+        logger.debug("Deleting all documents from vector store...")
+        # result = await self.vector_store.adelete(where={})
+        get_data = self.vector_store._collection.get()
+        logger.debug(f"get_data: {get_data}")
+        all_ids = get_data["ids"]
+        logger.debug(f"all_ids: {all_ids}")
+        result = self.vector_store.delete(ids=all_ids)
+        # result = self.vector_store._client.delete_collection(self.vector_store._collection.name)
+        logger.debug(f"delete result: {result}")
+        doc_count = self.vector_store._collection.count()
+        logger.info(f"Documents in vector store now: {doc_count}")
+        return 'Deleted'
+
       response = self.graph.invoke({"question": prompt})
       logger.debug(f"answer: {response['answer']}")
       return response["answer"]

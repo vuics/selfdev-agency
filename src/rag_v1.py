@@ -18,7 +18,7 @@ import os
 from dotenv import load_dotenv
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_chroma import Chroma
-from langchain import hub
+from langchain.prompts import ChatPromptTemplate
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langgraph.graph import START, StateGraph
@@ -44,7 +44,7 @@ load_dotenv()
 # Chroma settings
 CHROMA_HOST = os.getenv("CHROMA_HOST", "localhost")  # host only
 CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))  # host only
-CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION", "agent_{}_collection")  # {} will be replaced by agent name
+CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION", "agent_{}_rag")  # {} will be replaced by agent name
 CHROMA_DIRECTORY = os.getenv("CHROMA_DIRECTORY", "./chroma_db")  # directory only
 
 # Weaviate settings
@@ -94,7 +94,8 @@ class RagV1(XmppAgent):
       vector_store = InMemoryVectorStore(self.embeddings)
     elif self.config.options.vectorStore == "chroma":
       try:
-        collection_name = CHROMA_COLLECTION.format(self.config.options.name)
+        collection_name = CHROMA_COLLECTION.format(self.config.id)
+        logger.info(f"chroma collection_name: {collection_name}")
         chroma_client = chromadb.HttpClient(host=CHROMA_HOST,
                                             port=CHROMA_PORT)
         vector_store = Chroma(client=chroma_client,
@@ -105,7 +106,8 @@ class RagV1(XmppAgent):
         raise
     elif self.config.options.vectorStore == "chroma-dir":
       try:
-        collection_name = CHROMA_COLLECTION.format(self.config.options.name)
+        collection_name = CHROMA_COLLECTION.format(self.config.id)
+        logger.info(f"chroma collection_name: {collection_name}")
         vector_store = Chroma(persist_directory=CHROMA_DIRECTORY,
                               collection_name=CHROMA_COLLECTION,
                               embedding_function=self.embeddings)
@@ -203,9 +205,8 @@ class RagV1(XmppAgent):
       all_splits = text_splitter.split_documents(self.docs)
       _ = vector_store.add_documents(documents=all_splits)  # Index chunks
 
-    # TODO: Bring here the whole prompt from hub
-    # Define prompt for question-answering
-    self.prompt = hub.pull("rlm/rag-prompt")
+    self.prompt = ChatPromptTemplate.from_template(self.config.options.systemMessage)
+    logger.debug(f"self.prompt: {self.prompt}")
 
     # Define state for application
     class State(TypedDict):

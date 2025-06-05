@@ -27,7 +27,7 @@ class CodeV1(XmppAgent):
       self.code = self.config.options.code
       logger.debug(f'self.code: {self.code}')
       self.env = {
-        **(os.environ.copy()),
+        "PATH": os.environ["PATH"],
         **(getattr(self.config.options, "env", {})),
       }
       logger.debug(f'self.env: {self.env}')

@@ -17,13 +17,12 @@ class ChatV1(XmppAgent):
   async def start(self):
     await super().start()
     try:
-      logger.debug(f"self.config.options: {self.config.options}")
+      # logger.debug(f"self.config.options: {self.config.options}")
       self.model = init_model(
         model_provider=self.config.options.model.provider,
         model_name=self.config.options.model.name,
         api_key=self.config.options.model.apiKey if self.config.options.model.apiKey else None,
       )
-
       logger.debug(f"self.model: {self.model}")
     except Exception as e:
       logger.error(f"Error initializing model: {e}")
@@ -31,8 +30,8 @@ class ChatV1(XmppAgent):
   async def chat(self, *, prompt, reply_func=None):
     try:
       logger.debug(f"prompt: {prompt}")
-      logger.debug(f'self.config.options: {self.config.options}')
-      logger.debug(f'self.config.options.systemMessage: {self.config.options.systemMessage}')
+      # logger.debug(f'self.config.options: {self.config.options}')
+      # logger.debug(f'self.config.options.systemMessage: {self.config.options.systemMessage}')
       ai_msg = await self.model.ainvoke([
         SystemMessage(self.config.options.systemMessage),
         HumanMessage(prompt)

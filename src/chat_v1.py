@@ -37,22 +37,20 @@ class ChatV1(XmppAgent):
     try:
       logger.debug(f"Received prompt: {prompt}")
 
-      # Check if prompt is exactly a URL matching the share URL prefix
-      if self.file_manager.is_file_url(prompt):
-        logger.debug("Prompt is a file URL; downloading and storing.")
-        self.file_manager.add_file_from_url(prompt)
-        return "File downloaded and stored."
+      if self.file_manager.is_shared_file_url(prompt):
+        self.file_manager.add_file_url(prompt)
+        return "Files from URLs attached: {json.dumps(self.file_manager.get_file_urls())}"
 
       # Otherwise, treat prompt as a message with possible previous files
-      files = self.file_manager.get_all_files()
+      files_info = self.file_manager.get_files_info()
       human_content = [{"type": "text", "text": prompt}]
 
       # Append all stored files to the message if any
-      if files:
+      if files_info:
         human_content.append({"type": "text", "text": "Attached files:"})
-        human_content.extend(files)
+        human_content.extend(files_info)
         self.file_manager.clear()
-        logger.debug(f"Sending prompt with {len(files)} files to model.")
+        logger.debug(f"Sending prompt with {len(files_info)} files to model.")
 
       ai_msg = await self.model.ainvoke([
         SystemMessage(self.config.options.systemMessage),

@@ -32,11 +32,14 @@ from langchain_community.document_loaders import TextLoader
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_googledrive.document_loaders import GoogleDriveLoader
 from langchain_community.document_loaders import UnstructuredFileIOLoader
+from langchain_unstructured import UnstructuredLoader
+from langchain_community.vectorstores.utils import filter_complex_metadata
 import weaviate
 from langchain_weaviate.vectorstores import WeaviateVectorStore
 
 from base_model import init_model, init_embeddings
 from xmpp_agent import XmppAgent
+from file_manager import FileManager
 from helpers import str_to_bool
 
 logger = logging.getLogger("RagV1")
@@ -73,6 +76,9 @@ class RagV1(XmppAgent):
   '''
   RagV1 provides chat based on Retrieval-Augmented Generation
   '''
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.file_manager = FileManager()
 
   async def start(self):
     await super().start()
@@ -86,12 +92,14 @@ class RagV1(XmppAgent):
       self.regex_count = re.compile(self.rag.commands["count"])
       self.regex_loadText = re.compile(self.rag.commands["loadText"], re.MULTILINE)
       self.regex_loadURL = re.compile(self.rag.commands["loadURL"], re.MULTILINE)
+      self.regex_loadAttachment = re.compile(self.rag.commands["loadAttachment"])
       # self.regex_loadGDrive = re.compile(self.rag.commands["loadGDrive"])
       self.regex_delete = re.compile(self.rag.commands["delete"])
       logger.debug(f'regex_get: {self.regex_get}')
       logger.debug(f'regex_count: {self.regex_count}')
       logger.debug(f'regex_loadText: {self.regex_loadText}')
       logger.debug(f'regex_loadURL: {self.regex_loadURL}')
+      logger.debug(f'regex_loadAttachment: {self.regex_loadAttachment}')
       # logger.debug(f'regex_loadGDrive: {self.regex_loadGDrive}')
       logger.debug(f'regex_delete: {self.regex_delete}')
     except Exception as e:
@@ -118,10 +126,10 @@ class RagV1(XmppAgent):
       logger.error(f"Error initializing embeddings model: {e}")
 
     # Load vector store
-    vector_store = None
+    self.vector_store = None
     logger.info(f"Vector store: {self.config.options.rag.vectorStore}")
     if self.config.options.rag.vectorStore == "memory":
-      vector_store = InMemoryVectorStore(self.embeddings)
+      self.vector_store = InMemoryVectorStore(self.embeddings)
     elif self.config.options.rag.vectorStore == "chroma":
       try:
         self.collection_name = CHROMA_COLLECTION.format(self.config.id)
@@ -154,7 +162,7 @@ class RagV1(XmppAgent):
           grpc_port=WEAVIATE_GRPC_PORT,
           grpc_secure=WEAVIATE_GRPC_SECURE,
         )
-        vector_store = WeaviateVectorStore.from_documents([], self.embeddings, client=weaviate_client)  # , tenant=WEAVIATE_TENANT)
+        self.vector_store = WeaviateVectorStore.from_documents([], self.embeddings, client=weaviate_client)  # , tenant=WEAVIATE_TENANT)
       except Exception as e:
         logger.error(f"Error creating Weaviate client: {e}")
         raise
@@ -262,20 +270,25 @@ class RagV1(XmppAgent):
     return {"answer": response.content}
 
   async def chat(self, *, prompt, reply_func=None):
-    if not hasattr(self, 'graph'):
-      return "I am not ready while loading documents."
-
     try:
       logger.debug(f"prompt: {prompt}")
+
+      if not hasattr(self, 'graph'):
+        raise "I am not ready while loading documents."
+
+      if self.file_manager.is_shared_file_url(prompt):
+        return self.file_manager.add_file_url(prompt)
 
       if re.match(self.regex_get, prompt):
         logger.debug("get command")
         get_data = self.vector_store._collection.get()
         return json.dumps(get_data)
+
       elif re.match(self.regex_count, prompt):
         logger.debug("count command")
         count_data = self.vector_store._collection.count()
         return json.dumps(count_data)
+
       elif match := re.search(self.regex_loadText, prompt):
         logger.debug("loadText command")
         text = match.group(1)
@@ -285,6 +298,7 @@ class RagV1(XmppAgent):
         added_ids = self.add_docs([doc])
         logger.debug(f"added_ids: {added_ids}")
         return f"Loaded, ids={json.dumps(added_ids)}"
+
       elif match := re.search(self.regex_loadURL, prompt):
         logger.debug("loadURL command")
         arguments = match.group(1)
@@ -297,9 +311,38 @@ class RagV1(XmppAgent):
         added_ids = self.add_docs(docs)
         logger.debug(f"added_ids: {added_ids}")
         return f"Loaded, ids={json.dumps(added_ids)}"
+
+      elif re.match(self.regex_loadAttachment, prompt):
+        logger.debug("loadAttachment command")
+        file_urls = self.file_manager.get_file_urls()
+        logger.debug(f"file_urls: {file_urls}")
+        files_iobytes = self.file_manager.get_files_iobytes()
+        # logger.debug(f"files_iobytes: {files_iobytes}")
+        docs = []
+        for file_iobytes, url in zip(files_iobytes, file_urls):
+          # logger.debug(f"file_iobytes: {file_iobytes}")
+          # logger.debug(f"url: {url}")
+          filename = self.file_manager.get_filename_from_url(url)
+          # logger.debug(f"filename: {filename}")
+          loader = UnstructuredLoader(
+            file=file_iobytes,
+            url=url,
+            metadata_filename=filename,
+          )
+          # logger.debug(f"loader: {loader}")
+          loaded_docs = loader.load()
+          filtered_docs = filter_complex_metadata(loaded_docs)
+          docs.extend(filtered_docs)
+        # logger.debug(f"docs: {docs}")
+        added_ids = self.add_docs(docs)
+        self.file_manager.clear()
+        # logger.debug(f"added_ids: {added_ids}")
+        return f"Loaded, ids={json.dumps(added_ids)}"
+
       # elif re.match(self.regex_loadGDrive, prompt):
       #   logger.debug("loadGDrive command")
       #   return ''
+
       elif re.match(self.regex_delete, prompt):
         logger.debug("delete command")
         doc_count = self.vector_store._collection.count()
@@ -321,6 +364,7 @@ class RagV1(XmppAgent):
       response = self.graph.invoke({"question": prompt})
       logger.debug(f"answer: {response['answer']}")
       return response["answer"]
+
     except Exception as e:
       logger.error(f"chat error: {e}")
       return f"Error: {str(e)}"

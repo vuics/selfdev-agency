@@ -12,17 +12,25 @@ import logging
 import re
 import os
 import base64
+import json
+from io import BytesIO
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 import httpx
 import magic
 
+from helpers import str_to_bool
+
 logger = logging.getLogger("FileManager")
 
 load_dotenv()
 
-SHARE_URL_PREFIX = os.getenv("SHARE_URL_PREFIX", "https://selfdev-prosody.dev.local:5281/file_share")
+SHARE_URL_PREFIX = os.getenv("SHARE_URL_PREFIX", "https://selfdev-prosody.dev.local:5281/file_share/")
 SHARE_URL_REGEX = re.compile(f"^{re.escape(SHARE_URL_PREFIX)}")
+
+# FIXME: Set verify=True to check the certificates
+FILE_MANAGER_SECURE = str_to_bool(os.getenv("FILE_MANAGER_SECURE", "true"))
 
 
 class FileManager:
@@ -30,27 +38,59 @@ class FileManager:
   Manages files downloaded from URLs in memory
   '''
   def __init__(self):
-    self.files = []
+    self.file_urls = []
 
-  def is_file_url(self, prompt):
+  def is_shared_file_url(self, prompt):
     try:
       if re.match(SHARE_URL_REGEX, prompt):
-        logger.debug("Prompt is a file URL.")
-        # logger.debug("Prompt is a file URL; downloading and storing.")
-        # self.file_manager.add_file_from_url(prompt)
+        # logger.debug("Prompt is a file URL.")
         return True
       return False
     except Exception as e:
       logger.error(f"Error checking prompt {prompt} to match url pattern: {e}")
 
-  def add_file_from_url(self, url):
+  def add_file_url(self, url):
+    try:
+      # logger.debug(f"Adding file url: {url}")
+      self.file_urls.append(url)
+      return f"Files are attached from URLs: {json.dumps(self.file_urls)}"
+    except Exception as e:
+      logger.error(f"Error downloading file from {url}: {e}")
+
+  def get_file_urls(self):
+    return self.file_urls
+
+  def fetch_bytes_from_url(self, url):
     try:
       logger.debug(f"Downloading file from {url}")
-      # FIXME: Set verify=True to check the certificates
-      response = httpx.get(url, verify=False)
+      logger.debug(f"FILE_MANAGER_SECURE: {FILE_MANAGER_SECURE}")
+      response = httpx.get(url, verify=FILE_MANAGER_SECURE)
+      # logger.debug(f"response: {response}")
       response.raise_for_status()
       file_bytes = response.content
+      # logger.debug(f"file_bytes: {file_bytes}")
+      return file_bytes
+    except Exception as e:
+      logger.error(f"Error downloading file from {url}: {e}")
 
+  def get_files_bytes(self):
+    files_bytes = list(map(self.fetch_bytes_from_url, self.file_urls))
+    # logger.debug(f"files_bytes: {files_bytes}")
+    return files_bytes
+
+  def get_files_iobytes(self):
+    files_bytes = self.get_files_bytes()
+    # logger.debug(f"files_bytes: {files_bytes}")
+    files_iobytes = list(map(BytesIO, files_bytes))
+    # logger.debug(f"files_iobytes: {files_iobytes}")
+    return files_iobytes
+
+  def get_filename_from_url(self, url):
+    path = urlparse(url).path
+    return os.path.basename(path)
+
+  def get_file_info_from_bytes(self, file_bytes):
+    try:
       mime = magic.Magic(mime=True)
       mime_type = mime.from_buffer(file_bytes)
       type_part = mime_type.split("/")[0]
@@ -58,22 +98,25 @@ class FileManager:
         type = type_part
       else:
         type = "file"
-
       file_base64 = base64.b64encode(file_bytes).decode("utf-8")
       file_info = {
         "type": type,
         "source_type": "base64",
         "data": file_base64,
         "mime_type": mime_type,
-        "url": url,
       }
-      self.files.append(file_info)
-      logger.debug(f"File downloaded and added, MIME type: {mime_type}")
+      return file_info
     except Exception as e:
-      logger.error(f"Error downloading file from {url}: {e}")
+      logger.error(f"Error getting file info from bytes: {e}")
 
-  def get_all_files(self):
-    return self.files
+  def get_files_info(self):
+    try:
+      files_bytes = self.get_files_bytes()
+      # logger.debug(f"files_bytes: {files_bytes}")
+      files_info = list(map(self.get_file_info_from_bytes, files_bytes))
+      return files_info
+    except Exception as e:
+      logger.error(f"Error getting files info: {e}")
 
   def clear(self):
-    self.files = []
+    self.file_urls = []

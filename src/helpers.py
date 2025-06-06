@@ -11,9 +11,9 @@ def str_to_bool(val):
   """
   val = val.lower()
   if val in ('y', 'yes', 't', 'true', 'on', '1'):
-    return 1
+    return True
   if val in ('n', 'no', 'f', 'false', 'off', '0'):
-    return 0
+    return False
   raise ValueError(f"Invalid truth value {val}")
 
 

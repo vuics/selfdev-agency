@@ -38,8 +38,7 @@ class ChatV1(XmppAgent):
       logger.debug(f"Received prompt: {prompt}")
 
       if self.file_manager.is_shared_file_url(prompt):
-        self.file_manager.add_file_url(prompt)
-        return "Files from URLs attached: {json.dumps(self.file_manager.get_file_urls())}"
+        return self.file_manager.add_file_url(prompt)
 
       # Otherwise, treat prompt as a message with possible previous files
       files_info = self.file_manager.get_files_info()

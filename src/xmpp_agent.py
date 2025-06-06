@@ -143,7 +143,7 @@ class XmppAgent(ClientXMPP):
         logger.error(f'Error registering user: {self.jid}')
 
   async def register_user(self):
-    logger.info(f'Register a new XMPP user with credentials> user: {self.user}, password: {self.password}')
+    # logger.info(f'Register a new XMPP user with credentials> user: {self.user}, password: {self.password}')
     try:
       async with httpx.AsyncClient() as client:
         response = await client.get(

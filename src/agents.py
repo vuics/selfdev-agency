@@ -104,7 +104,9 @@ logger = logging.getLogger("agents")
 
 logging.getLogger("pymongo").setLevel(logging.INFO)
 logging.getLogger("motor").setLevel(logging.INFO)
-logging.getLogger("slixmpp").setLevel(logging.INFO)
+# logging.getLogger("slixmpp").setLevel(logging.INFO)
+logging.getLogger("httpx").setLevel(logging.INFO)
+logging.getLogger("httpcore").setLevel(logging.INFO)
 
 # Map of agent class names to their actual classes
 ARCHETYPE_CLASSES = {

@@ -53,7 +53,13 @@ class FileManager:
     try:
       # logger.debug(f"Adding file url: {url}")
       self.file_urls.append(url)
-      return f"Files are attached from URLs: {json.dumps(self.file_urls)}"
+
+      # NOTE: the agent should return empty string to be compatible with Map.
+      #
+      # Do not use this:
+      #   return f"Files are attached from URLs: {json.dumps(self.file_urls)}"
+      #
+      return ""
     except Exception as e:
       logger.error(f"Error downloading file from {url}: {e}")
 
@@ -63,8 +69,11 @@ class FileManager:
   def fetch_bytes_from_url(self, url):
     try:
       logger.debug(f"Downloading file from {url}")
+
+      # TODO: Develop support for TLS certifictes for verify=True
       logger.debug(f"FILE_MANAGER_SECURE: {FILE_MANAGER_SECURE}")
       response = httpx.get(url, verify=FILE_MANAGER_SECURE)
+
       # logger.debug(f"response: {response}")
       response.raise_for_status()
       file_bytes = response.content
@@ -98,13 +107,21 @@ class FileManager:
         type = type_part
       else:
         type = "file"
-      file_base64 = base64.b64encode(file_bytes).decode("utf-8")
-      file_info = {
-        "type": type,
-        "source_type": "base64",
-        "data": file_base64,
-        "mime_type": mime_type,
-      }
+
+      if type == "text":
+        file_info = {
+          "type": type,
+          "mime_type": mime_type,
+          "text": file_bytes.decode("utf-8"),
+        }
+      else:
+        file_base64 = base64.b64encode(file_bytes).decode("utf-8")
+        file_info = {
+          "type": type,
+          "source_type": "base64",
+          "data": file_base64,
+          "mime_type": mime_type,
+        }
       return file_info
     except Exception as e:
       logger.error(f"Error getting file info from bytes: {e}")

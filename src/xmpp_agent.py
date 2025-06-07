@@ -343,21 +343,21 @@ class XmppAgent(ClientXMPP):
       ns = "urn:xmpp:http:upload:0"
       put_el = slot.xml.find(f".//{{{ns}}}put")
       get_el = slot.xml.find(f".//{{{ns}}}get")
-      logging.debug(f"put_el: {put_el}")
-      logging.debug(f"get_el: {get_el}")
+      # logging.debug(f"put_el: {put_el}")
+      # logging.debug(f"get_el: {get_el}")
 
       put_url = put_el.attrib.get("url") if put_el is not None else None
       get_url = get_el.attrib.get("url") if get_el is not None else None
-      logging.debug(f"PUT URL: {put_url}")
-      logging.debug(f"GET URL: {get_url}")
+      # logging.debug(f"PUT URL: {put_url}")
+      # logging.debug(f"GET URL: {get_url}")
 
       auth_token = None
       if put_el is not None:
         header_el = put_el.find(f".//{{{ns}}}header")
-        logging.debug(f"header_el: {header_el}")
+        # logging.debug(f"header_el: {header_el}")
         if header_el is not None and header_el.attrib.get("name") == "Authorization":
           auth_token = header_el.text or ""
-      logging.debug(f"Auth token: {auth_token}")
+      # logging.debug(f"Auth token: {auth_token}")
 
       headers = {'Content-Type': content_type}
       if auth_token:

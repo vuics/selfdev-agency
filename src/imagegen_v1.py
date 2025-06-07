@@ -1,15 +1,11 @@
 '''
 ImagegenV1 Agent Archetype
 '''
-# import os
 import logging
-# import base64
 
 from openai import OpenAI
 
-# from base_model import init_model
 from xmpp_agent import XmppAgent
-# from file_manager import FileManager
 
 logger = logging.getLogger("ImagegenV1")
 
@@ -43,16 +39,19 @@ class ImagegenV1(XmppAgent):
         raise Exception("Client was not initialized")
 
       if self.config.options.imagegen.model.provider == 'openai':
-        img = self.client.images.generate(
-          prompt=prompt,
-          model=self.config.options.imagegen.model.name,
-          size=self.config.options.imagegen.size,
-          n=self.config.options.imagegen.n,
-          # quality=self.config.options.imagegen.quality, # only for dalle3
-          # style=self.config.options.imagegen.style,     # only for dalle3
-          user=f"user_{self.config.userId}",
-          response_format="b64_json",
-        )
+        params = {
+          "prompt": prompt,
+          "model": self.config.options.imagegen.model.name,
+          "size": self.config.options.imagegen.size,
+          "n": self.config.options.imagegen.n,
+          "user": f"user_{self.config.userId}",
+          "response_format": "b64_json",
+        }
+        if self.config.options.imagegen.model.name == "dall-e-3":
+          params["quality"] = self.config.options.imagegen.quality
+          params["style"] = self.config.options.imagegen.style
+
+        img = self.client.images.generate(**params)
         # logger.debug(f"img: {img}")
 
         content = ''
@@ -64,7 +63,7 @@ class ImagegenV1(XmppAgent):
             filename=f'image_{index}.png',
             content_type='image/png',
           )
-          logger.debug(f"get_url: {get_url}")
+          logger.info(f"get_url: {get_url}")
           if reply_func:
             reply_func(get_url)
           content += f'![Generated Image]({get_url})'

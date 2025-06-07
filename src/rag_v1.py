@@ -297,7 +297,7 @@ class RagV1(XmppAgent):
         logger.debug(f"doc: {doc}")
         added_ids = self.add_docs([doc])
         logger.debug(f"added_ids: {added_ids}")
-        return f"Loaded, ids={json.dumps(added_ids)}"
+        return f"Loaded {len(added_ids)} chunks"
 
       elif match := re.search(self.regex_loadURL, prompt):
         logger.debug("loadURL command")
@@ -310,7 +310,7 @@ class RagV1(XmppAgent):
         logger.debug(f"docs: {docs}")
         added_ids = self.add_docs(docs)
         logger.debug(f"added_ids: {added_ids}")
-        return f"Loaded, ids={json.dumps(added_ids)}"
+        return f"Loaded {len(added_ids)} chunks"
 
       elif re.match(self.regex_loadAttachment, prompt):
         logger.debug("loadAttachment command")
@@ -337,7 +337,7 @@ class RagV1(XmppAgent):
         added_ids = self.add_docs(docs)
         self.file_manager.clear()
         # logger.debug(f"added_ids: {added_ids}")
-        return f"Loaded, ids={json.dumps(added_ids)}"
+        return f"Loaded {len(added_ids)} chunks"
 
       # elif re.match(self.regex_loadGDrive, prompt):
       #   logger.debug("loadGDrive command")

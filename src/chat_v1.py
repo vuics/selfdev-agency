@@ -3,6 +3,7 @@ ChatV1 Agent Archetype (with message history)
 '''
 import os
 import logging
+from urllib.parse import urlparse
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain.memory.chat_message_histories import MongoDBChatMessageHistory
@@ -34,19 +35,21 @@ class ChatV1(XmppAgent):
     await super().start()
     try:
       self.model = init_model(
-        model_provider=self.config.options.model.provider,
-        model_name=self.config.options.model.name,
-        api_key=self.config.options.model.apiKey or None,
+        model_provider=self.config.options.chat.model.provider,
+        model_name=self.config.options.chat.model.name,
+        api_key=self.config.options.chat.model.apiKey or None,
       )
       logger.debug(f"Model initialized: {self.model}")
 
       if self.config.options.chat.session:
         logger.info(f"Message history enabled with session: {self.config.options.chat.session}")
-        session_id = f"user_{self.config.userId}_session_{self.config.options.chat.session}"
+        session_id = f"user_{self.config.userId}_{self.config.options.chat.session}"
         logger.info(f"session_id: {session_id}")
+        parsed_db_url = urlparse(DB_URL)
+        database_name = parsed_db_url.path.lstrip('/')
         self.chat_history = MongoDBChatMessageHistory(
           connection_string=DB_URL,
-          # database_name="chat_db",
+          database_name=database_name,
           collection_name="conversations",
           session_id=session_id,
         )
@@ -72,7 +75,7 @@ class ChatV1(XmppAgent):
 
       # Build full message history
       messages = [
-        SystemMessage(self.config.options.systemMessage),
+        SystemMessage(self.config.options.chat.systemMessage),
         *(self.chat_history.messages if self.chat_history else []),
         HumanMessage(content=human_content)
       ]

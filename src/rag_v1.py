@@ -85,16 +85,15 @@ class RagV1(XmppAgent):
 
     try:
       # logger.debug(f'self.config: {self.config}')
-      self.rag = self.config.options.rag
-      # logger.debug(f'self.rag: {self.rag}')
+      # logger.debug(f'self.config.options.rag: {self.config.options.rag}')
 
-      self.regex_get = re.compile(self.rag.commands["get"])
-      self.regex_count = re.compile(self.rag.commands["count"])
-      self.regex_loadText = re.compile(self.rag.commands["loadText"], re.MULTILINE)
-      self.regex_loadURL = re.compile(self.rag.commands["loadURL"], re.MULTILINE)
-      self.regex_loadAttachment = re.compile(self.rag.commands["loadAttachment"])
-      # self.regex_loadGDrive = re.compile(self.rag.commands["loadGDrive"])
-      self.regex_delete = re.compile(self.rag.commands["delete"])
+      self.regex_get = re.compile(self.config.options.rag.commands["get"])
+      self.regex_count = re.compile(self.config.options.rag.commands["count"])
+      self.regex_loadText = re.compile(self.config.options.rag.commands["loadText"], re.MULTILINE)
+      self.regex_loadURL = re.compile(self.config.options.rag.commands["loadURL"], re.MULTILINE)
+      self.regex_loadAttachment = re.compile(self.config.options.rag.commands["loadAttachment"])
+      # self.regex_loadGDrive = re.compile(self.config.options.rag.commands["loadGDrive"])
+      self.regex_delete = re.compile(self.config.options.rag.commands["delete"])
       logger.debug(f'regex_get: {self.regex_get}')
       logger.debug(f'regex_count: {self.regex_count}')
       logger.debug(f'regex_loadText: {self.regex_loadText}')
@@ -108,9 +107,9 @@ class RagV1(XmppAgent):
     # Load LLM and embeddings
     try:
       self.model = init_model(
-        model_provider=self.config.options.model.provider,
-        model_name=self.config.options.model.name,
-        api_key=self.config.options.model.apiKey if self.config.options.model.apiKey else None,
+        model_provider=self.config.options.rag.model.provider,
+        model_name=self.config.options.rag.model.name,
+        api_key=self.config.options.rag.model.apiKey or None,
       )
       logger.debug(f"self.model: {self.model}")
     except Exception as e:
@@ -118,9 +117,9 @@ class RagV1(XmppAgent):
 
     try:
       self.embeddings = init_embeddings(
-        model_provider=self.config.options.embeddings.provider,
-        embeddings_name=self.config.options.embeddings.name,
-        api_key=self.config.options.embeddings.apiKey if self.config.options.embeddings.apiKey else None,
+        model_provider=self.config.options.rag.embeddings.provider,
+        embeddings_name=self.config.options.rag.embeddings.name,
+        api_key=self.config.options.rag.embeddings.apiKey or None,
       )
     except Exception as e:
       logger.error(f"Error initializing embeddings model: {e}")
@@ -241,7 +240,7 @@ class RagV1(XmppAgent):
     if docs:
       self.add_docs(docs)
 
-    self.prompt = ChatPromptTemplate.from_template(self.config.options.systemMessage)
+    self.prompt = ChatPromptTemplate.from_template(self.config.options.rag.systemMessage)
     logger.debug(f"self.prompt: {self.prompt}")
 
     # Define application steps, compile application and test

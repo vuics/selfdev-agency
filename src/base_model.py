@@ -221,14 +221,14 @@ def init_model(*, model_provider, model_name, api_key):
       model=model_name,
       temperature=0,
       base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-      api_key=api_key if api_key else None,
+      api_key=api_key or None,
     )
   elif model_provider == "azure":
     model = AzureChatOpenAI(
       azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
       azure_deployment=model_name,
       openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
-      api_key=api_key if api_key else None,
+      api_key=api_key or None,
     )
   elif model_provider == "google_genai":
     model = ChatGoogleGenerativeAI(
@@ -237,19 +237,19 @@ def init_model(*, model_provider, model_name, api_key):
       max_tokens=None,
       timeout=None,
       max_retries=2,
-      api_key=api_key if api_key else None,
+      api_key=api_key or None,
     )
   elif model_provider == "ibm":
     model = ChatWatsonx(
       model_id=model_name,
       url=os.getenv("IBM_URL"),
       project_id=os.getenv("IBM_PROJECT_ID"),
-      api_key=api_key if api_key else None,
+      api_key=api_key or None,
     )
   elif model_provider == "databricks":
     model = ChatDatabricks(
       endpoint=model_name,
-      api_key=api_key if api_key else None,
+      api_key=api_key or None,
     )
   elif model_provider == "huggingface":
     llm = HuggingFaceEndpoint(
@@ -261,17 +261,17 @@ def init_model(*, model_provider, model_name, api_key):
     )
     model = ChatHuggingFace(
       llm=llm,
-      api_key=api_key if api_key else None,
+      api_key=api_key or None,
     )
   elif model_provider == "ai21":
     model = ChatAI21(
       model="jamba-instruct",
       temperature=0,
-      api_key=api_key if api_key else None,
+      api_key=api_key or None,
     )
   elif model_provider == "upstage":
     model = ChatUpstage(
-      api_key=api_key if api_key else None,
+      api_key=api_key or None,
     )
   elif model_provider == "xai":
     model = ChatXAI(
@@ -285,7 +285,7 @@ def init_model(*, model_provider, model_name, api_key):
     model = ChatPerplexity(
       model=model_name,
       temperature=0,
-      api_key=api_key if api_key else None,
+      api_key=api_key or None,
     )
   # elif model_provider == "llamacpp":
   #   model = ChatLlamaCpp(
@@ -299,23 +299,23 @@ def init_model(*, model_provider, model_name, api_key):
   #     repeat_penalty=1.5,
   #     top_p=0.5,
   #     verbose=True,
-  #     api_key=api_key if api_key else None,
+  #     api_key=api_key or None,
   #   )
   # elif model_provider == "openai":
   #   model = ChatOpenAI(
   #     model=model_name,
-  #     api_key=api_key if api_key else None,
+  #     api_key=api_key or None,
   #   )
   # elif model_provider == "anthropic":
   #   model = ChatAnthropic(
   #     model=model_name,
-  #     api_key=api_key if api_key else None,
+  #     api_key=api_key or None,
   #   )
   else:
     model = init_chat_model(
       model_name,
       model_provider=model_provider,
-      api_key=api_key if api_key else None,
+      api_key=api_key or None,
     )
 
   print('model:', model)
@@ -330,13 +330,13 @@ def init_embeddings(*, model_provider, embeddings_name, api_key):
   if model_provider == "openai":
     embeddings = OpenAIEmbeddings(
       model=embeddings_name,
-      api_key=api_key if api_key else None,
+      api_key=api_key or None,
     )
   elif model_provider == "ollama":
     embeddings = OllamaEmbeddings(
       model=embeddings_name,
       base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-      api_key=api_key if api_key else None,
+      api_key=api_key or None,
     )
   else:
     raise ValueError(f"Unknown Embeddings model provider: {model_provider}")

@@ -53,14 +53,14 @@ from helpers import str_to_bool
 from xmpp_agent import XmppAgent
 from chat_v1 import ChatV1
 from rag_v1 import RagV1
-from notebook_v1 import NotebookV1
+from imagegen_v1 import ImagegenV1
+from code_v1 import CodeV1
+from quantum_v1 import QuantumV1
+from storage_v1 import StorageV1
 from command_v1 import CommandV1
 from langflow_v1 import LangflowV1
 from nodered_v1 import NoderedV1
-from quantum_v1 import QuantumV1
-from storage_v1 import StorageV1
-from code_v1 import CodeV1
-from imagegen_v1 import ImagegenV1
+from notebook_v1 import NotebookV1
 
 # Load environment variables
 load_dotenv()
@@ -113,14 +113,14 @@ logging.getLogger("httpcore").setLevel(logging.INFO)
 ARCHETYPE_CLASSES = {
   "chat-v1.0": ChatV1,
   "rag-v1.0": RagV1,
-  "notebook-v1.0": NotebookV1,
+  "imagegen-v1.0": ImagegenV1,
+  "code-v1.0": CodeV1,
+  "quantum-v1.0": QuantumV1,
+  "storage-v1.0": StorageV1,
   "command-v1.0": CommandV1,
   "langflow-v1.0": LangflowV1,
   "nodered-v1.0": NoderedV1,
-  "quantum-v1.0": QuantumV1,
-  "storage-v1.0": StorageV1,
-  "code-v1.0": CodeV1,
-  "imagegen-v1.0": ImagegenV1,
+  "notebook-v1.0": NotebookV1,
 }
 
 # Running agents registry

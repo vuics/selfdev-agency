@@ -60,6 +60,7 @@ from nodered_v1 import NoderedV1
 from quantum_v1 import QuantumV1
 from storage_v1 import StorageV1
 from code_v1 import CodeV1
+from imagegen_v1 import ImagegenV1
 
 # Load environment variables
 load_dotenv()
@@ -119,6 +120,7 @@ ARCHETYPE_CLASSES = {
   "quantum-v1.0": QuantumV1,
   "storage-v1.0": StorageV1,
   "code-v1.0": CodeV1,
+  "imagegen-v1.0": ImagegenV1,
 }
 
 # Running agents registry

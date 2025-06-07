@@ -65,6 +65,8 @@ class ImagegenV1(XmppAgent):
             content_type='image/png',
           )
           logger.debug(f"get_url: {get_url}")
+          if reply_func:
+            reply_func(get_url)
           content += f'![Generated Image]({get_url})'
         return content
 

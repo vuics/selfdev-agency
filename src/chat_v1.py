@@ -1,9 +1,12 @@
 '''
-ChatV1 Agent Archetype
+ChatV1 Agent Archetype (with message history)
 '''
+import os
 import logging
 
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain.memory.chat_message_histories import MongoDBChatMessageHistory
+from dotenv import load_dotenv
 
 from base_model import init_model
 from xmpp_agent import XmppAgent
@@ -11,25 +14,43 @@ from file_manager import FileManager
 
 logger = logging.getLogger("ChatV1")
 
+# Load environment variables
+load_dotenv()
+
+# MongoDB connection settings
+DB_URL = os.getenv("DB_URL", "mongodb://mongo.dev.local:27017/selfdev")
+
 
 class ChatV1(XmppAgent):
   '''
-  ChatV1 provides chats with LLMs
+  ChatV1 provides chats with LLMs using persistent memory via MongoDB
   '''
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self.file_manager = FileManager()
+    self.chat_history = None  # Will initialize per session
 
   async def start(self):
     await super().start()
     try:
-      # logger.debug(f"self.config.options: {self.config.options}")
       self.model = init_model(
         model_provider=self.config.options.model.provider,
         model_name=self.config.options.model.name,
-        api_key=self.config.options.model.apiKey if self.config.options.model.apiKey else None,
+        api_key=self.config.options.model.apiKey or None,
       )
-      logger.debug(f"self.model: {self.model}")
+      logger.debug(f"Model initialized: {self.model}")
+
+      if self.config.options.chat.session:
+        logger.info(f"Message history enabled with session: {self.config.options.chat.session}")
+        session_id = f"user_{self.config.userId}_session_{self.config.options.chat.session}"
+        logger.info(f"session_id: {session_id}")
+        self.chat_history = MongoDBChatMessageHistory(
+          connection_string=DB_URL,
+          # database_name="chat_db",
+          collection_name="conversations",
+          session_id=session_id,
+        )
+
     except Exception as e:
       logger.error(f"Error initializing model: {e}")
 
@@ -40,24 +61,33 @@ class ChatV1(XmppAgent):
       if self.file_manager.is_shared_file_url(prompt):
         return self.file_manager.add_file_url(prompt)
 
-      # Otherwise, treat prompt as a message with possible previous files
       files_info = self.file_manager.get_files_info()
       human_content = [{"type": "text", "text": prompt}]
 
-      # Append all stored files to the message if any
       if files_info:
         human_content.append({"type": "text", "text": "Attached files:"})
         human_content.extend(files_info)
         self.file_manager.clear()
         logger.debug(f"Sending prompt with {len(files_info)} files to model.")
 
-      ai_msg = await self.model.ainvoke([
+      # Build full message history
+      messages = [
         SystemMessage(self.config.options.systemMessage),
-        HumanMessage(content=human_content),
-      ])
+        *(self.chat_history.messages if self.chat_history else []),
+        HumanMessage(content=human_content)
+      ]
 
-      logger.debug(f"AI response: {ai_msg.content}")
+      # Call model with full context
+      ai_msg = await self.model.ainvoke(messages)
+
+      if self.chat_history:
+        # Save messages to history
+        self.chat_history.add_user_message(human_content)
+        self.chat_history.add_ai_message(ai_msg.content)
+
+      logger.debug(f"model response: {ai_msg.content}")
       return ai_msg.content
+
     except Exception as e:
       logger.error(f"Chat error: {e}")
       return f"Error: {str(e)}"

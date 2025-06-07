@@ -12,7 +12,7 @@ import logging
 import re
 import os
 import base64
-import json
+# import json
 from io import BytesIO
 from urllib.parse import urlparse
 
@@ -30,7 +30,7 @@ SHARE_URL_PREFIX = os.getenv("SHARE_URL_PREFIX", "https://selfdev-prosody.dev.lo
 SHARE_URL_REGEX = re.compile(f"^{re.escape(SHARE_URL_PREFIX)}")
 
 # FIXME: Set verify=True to check the certificates
-FILE_MANAGER_SECURE = str_to_bool(os.getenv("FILE_MANAGER_SECURE", "true"))
+SSL_VERIFY = str_to_bool(os.getenv("SSL_VERIFY", "true"))
 
 
 class FileManager:
@@ -71,8 +71,8 @@ class FileManager:
       logger.debug(f"Downloading file from {url}")
 
       # TODO: Develop support for TLS certifictes for verify=True
-      logger.debug(f"FILE_MANAGER_SECURE: {FILE_MANAGER_SECURE}")
-      response = httpx.get(url, verify=FILE_MANAGER_SECURE)
+      logger.debug(f"SSL_VERIFY: {SSL_VERIFY}")
+      response = httpx.get(url, verify=SSL_VERIFY)
 
       # logger.debug(f"response: {response}")
       response.raise_for_status()

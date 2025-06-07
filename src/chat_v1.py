@@ -6,7 +6,9 @@ import logging
 from urllib.parse import urlparse
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain.memory.chat_message_histories import MongoDBChatMessageHistory
+# from langchain.memory.chat_message_histories import MongoDBChatMessageHistory
+from langchain_community.chat_message_histories import MongoDBChatMessageHistory
+
 from dotenv import load_dotenv
 
 from base_model import init_model

@@ -5,10 +5,15 @@ import os
 import logging
 import ssl
 import asyncio
+import base64
+from io import BytesIO
+from xml.etree.ElementTree import QName
 
 from slixmpp import ClientXMPP
 import httpx
 from dotenv import load_dotenv
+from aiohttp import ClientSession
+import magic
 
 from helpers import str_to_bool
 
@@ -21,6 +26,10 @@ XMPP_COMMANDER_URL = os.getenv("XMPP_COMMANDER_URL", "http://localhost:8387")
 XMPP_CONNECT_HOST = os.getenv("XMPP_CONNECT_HOST", "")
 XMPP_CONNECT_PORT = int(os.getenv("XMPP_CONNECT_PORT", "5222"))
 XMPP_RECONNECT_MAX_DELAY = int(os.getenv("XMPP_RECONNECT_MAX_DELAY", "300"))
+XMPP_SHARE_HOST = os.getenv("XMPP_SHARE_HOST", "share.localhost")
+
+# FIXME: Set verify=True to check the certificates
+SSL_VERIFY = str_to_bool(os.getenv("SSL_VERIFY", "true"))
 
 
 class XmppAgent(ClientXMPP):
@@ -103,6 +112,7 @@ class XmppAgent(ClientXMPP):
     self.register_plugin('xep_0004')  # Data Forms
     self.register_plugin('xep_0060')  # PubSub
     self.register_plugin('xep_0249')  # Direct MUC Invitations
+    self.register_plugin("xep_0363")  # HTTP File Upload
 
   async def connect(self):
     if self.reconnect_attempts == 0:
@@ -309,3 +319,56 @@ class XmppAgent(ClientXMPP):
     logger.info(f'Joining the room by invite> room_jid: {room_jid}')
     self.add_event_handler("muc::%s::got_online" % room_jid, self.muc_online)
     self.plugin['xep_0045'].join_muc(room_jid, self.nick)
+
+  async def upload_file(self, *, file_base64: str, filename: str, content_type: str = None):
+    try:
+      # Decode base64 to bytes
+      file_bytes = base64.b64decode(file_base64)
+      file_buffer = BytesIO(file_bytes)
+      size = len(file_bytes)
+
+      if not content_type:
+        mime = magic.Magic(mime=True)
+        content_type = mime.from_buffer(file_bytes)
+        if not content_type:
+          content_type = "application/octet-stream"
+
+      slot = await self['xep_0363'].request_slot(
+        filename=filename,
+        size=size,
+        content_type=content_type,
+        jid=XMPP_SHARE_HOST,
+      )
+
+      ns = "urn:xmpp:http:upload:0"
+      put_el = slot.xml.find(f".//{{{ns}}}put")
+      get_el = slot.xml.find(f".//{{{ns}}}get")
+      logging.debug(f"put_el: {put_el}")
+      logging.debug(f"get_el: {get_el}")
+
+      put_url = put_el.attrib.get("url") if put_el is not None else None
+      get_url = get_el.attrib.get("url") if get_el is not None else None
+      logging.debug(f"PUT URL: {put_url}")
+      logging.debug(f"GET URL: {get_url}")
+
+      auth_token = None
+      if put_el is not None:
+        header_el = put_el.find(f".//{{{ns}}}header")
+        logging.debug(f"header_el: {header_el}")
+        if header_el is not None and header_el.attrib.get("name") == "Authorization":
+          auth_token = header_el.text or ""
+      logging.debug(f"Auth token: {auth_token}")
+
+      headers = {'Content-Type': content_type}
+      if auth_token:
+        headers['Authorization'] = auth_token
+      async with ClientSession() as session:
+        async with session.put(put_url, data=file_buffer, headers=headers, ssl=SSL_VERIFY) as resp:
+          if resp.status not in (200, 201):
+            text = await resp.text()
+            raise Exception(f"Upload failed with status {resp.status}: {text}")
+
+      return get_url
+    except Exception as e:
+      logging.error(f"Error uploading file: {e}")
+      return None

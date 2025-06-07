@@ -36,6 +36,8 @@ class ChatV1(XmppAgent):
   async def start(self):
     await super().start()
     try:
+      # logger.debug(f"self.config.options: {self.config.options}")
+      # logger.debug(f"self.config.options.chat: {self.config.options.chat}")
       self.model = init_model(
         model_provider=self.config.options.chat.model.provider,
         model_name=self.config.options.chat.model.name,

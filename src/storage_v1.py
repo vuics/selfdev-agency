@@ -4,6 +4,7 @@ StorageV1 Agent Archetype
 import os
 import logging
 import re
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from pymongo import AsyncMongoClient
@@ -42,7 +43,11 @@ class StorageV1(XmppAgent):
       if self.storage.driver == "mongodb":
         self.client = AsyncMongoClient(DB_URL)
         # self.client = await AsyncMongoClient(DB_URL).aconnect()
-        self.storages = self.client.db["storages"]
+        parsed_db_url = urlparse(DB_URL)
+        database_name = parsed_db_url.path.lstrip('/')
+        logger.info(f"database_name: {database_name}")
+        self.db = self.client[database_name]
+        self.storages = self.db["storages"]
       else:
         raise Exception('Unknown storage driver')
 

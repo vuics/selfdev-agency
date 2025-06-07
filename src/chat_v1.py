@@ -47,6 +47,7 @@ class ChatV1(XmppAgent):
         logger.info(f"session_id: {session_id}")
         parsed_db_url = urlparse(DB_URL)
         database_name = parsed_db_url.path.lstrip('/')
+        logger.info(f"database_name: {database_name}")
         self.chat_history = MongoDBChatMessageHistory(
           connection_string=DB_URL,
           database_name=database_name,

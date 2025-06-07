@@ -54,21 +54,19 @@ class ImagegenV1(XmppAgent):
           response_format="b64_json",
         )
         # logger.debug(f"img: {img}")
-        image_base64 = img.data[0].b64_json
-        # logger.debug(f"image_base64: {image_base64}")
 
-        get_url = await self.upload_file(
-          file_base64=image_base64,
-          filename='image.png',
-          content_type='image/png',
-        )
-        logger.debug(f"get_url: {get_url}")
-
-        # return get_url
-        # markdown_image = f'![Plot Image](data:image/png;base64,{image_base64})'
-
-        markdown_image = f'![Generated Image]({get_url})'
-        return markdown_image
+        content = ''
+        for index, data_item in enumerate(img.data):
+          image_base64 = data_item.b64_json
+          # logger.debug(f"image_base64: {image_base64}")
+          get_url = await self.upload_file(
+            file_base64=image_base64,
+            filename=f'image_{index}.png',
+            content_type='image/png',
+          )
+          logger.debug(f"get_url: {get_url}")
+          content += f'![Generated Image]({get_url})'
+        return content
 
       else:
         raise Exception(f"Unknown model provider: {self.config.options.imagegen.model.provider}")

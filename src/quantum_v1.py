@@ -37,27 +37,27 @@ class QuantumV1(XmppAgent):
   async def start(self):
     await super().start()
     try:
-      self.qiskitConfig = self.config.options.qiskit
-      logger.debug(f'self.qiskitConfig: {self.qiskitConfig}')
+      self.quantumConfig = self.config.options.quantum
+      logger.debug(f'self.quantumConfig: {self.quantumConfig}')
 
       self.service = QiskitRuntimeService(
         channel='ibm_cloud',
-        instance=self.qiskitConfig.instance,
-        token=self.qiskitConfig.apiKey,
+        instance=self.quantumConfig.instance,
+        token=self.quantumConfig.apiKey,
       )
       instances = self.service.instances()
       logger.debug(f'Instances: {instances}')
       backends = self.service.backends()
       logger.debug(f'Backends: {backends}')
 
-      if self.qiskitConfig.backend == "least_busy":
+      if self.quantumConfig.backend == "least_busy":
         self.backend = self.service.least_busy(
-          operational=True, simulator=False, min_num_qubits=self.qiskitConfig.minNumQubits,
+          operational=True, simulator=False, min_num_qubits=self.quantumConfig.minNumQubits,
         )
-      elif self.qiskitConfig.backend == "fake_almaden_v2":
+      elif self.quantumConfig.backend == "fake_almaden_v2":
         self.backend = FakeAlmadenV2()
       else:
-        self.backend = self.service.backend(self.qiskitConfig.backend)
+        self.backend = self.service.backend(self.quantumConfig.backend)
       logger.debug(f'Backend: {self.backend}')
       logger.debug(f'Backend coupling_map: {self.backend.coupling_map}')
 
@@ -70,15 +70,15 @@ class QuantumV1(XmppAgent):
       logger.debug(f'self.config.options: {self.config.options}')
 
       logger.debug(f'• Prompt: {prompt}')
-      if self.qiskitConfig.language == "qasm2":
+      if self.quantumConfig.language == "qasm2":
         circuit = qiskit.qasm2.loads(prompt)
-      elif self.qiskitConfig.language == "qasm3":
+      elif self.quantumConfig.language == "qasm3":
         circuit = qiskit.qasm3.loads(prompt)
       logger.debug(f'Circuit:\n{circuit}')
 
       content = ""
-      if self.qiskitConfig.draw.enable:
-        drawing = circuit.draw(output=self.qiskitConfig.draw.output, style=self.qiskitConfig.draw.style)
+      if self.quantumConfig.draw.enable:
+        drawing = circuit.draw(output=self.quantumConfig.draw.output, style=self.quantumConfig.draw.style)
         drawing = str(drawing)
         logger.debug('• Drawing: {drawing}')
         content += f'\n```qasm\n{drawing}\n```\n\n'
@@ -86,12 +86,12 @@ class QuantumV1(XmppAgent):
       transpiled_circuit = transpile(circuit, self.backend)
       logger.debug(f'Transpiled circuit:\n{transpiled_circuit}')
 
-      if self.qiskitConfig.optimizationLevel == 0:
+      if self.quantumConfig.optimizationLevel == 0:
         sampler = Sampler(self.backend)
         job = sampler.run([transpiled_circuit])
       else:
         pm = generate_preset_pass_manager(
-          optimization_level=self.qiskitConfig.optimizationLevel,
+          optimization_level=self.quantumConfig.optimizationLevel,
           backend=self.backend
         )
         isa_circuit = pm.run(transpiled_circuit)
@@ -116,4 +116,3 @@ class QuantumV1(XmppAgent):
     except Exception as e:
       logger.error(f"Quantum error: {e}")
       return f'Error: {str(e)}'
-

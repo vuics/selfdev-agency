@@ -29,13 +29,13 @@ class LangflowV1(XmppAgent):
     try:
       logger.debug(f"prompt: {prompt}")
       logger.debug(f'self.config.options: {self.config.options}')
-      url = f"{LANGFLOW_URL}/api/v1/run/{self.config.options.flow.flowId}?stream=false"
+      url = f"{LANGFLOW_URL}/api/v1/run/{self.config.options.langflow.flowId}?stream=false"
       logger.debug(f"url: {url}")
       payload = {
         "input_value": prompt,
         "output_type": "chat",
         "input_type": "chat",
-        "session_id": self.config.options.flow.sessionId,
+        "session_id": self.config.options.langflow.sessionId,
       }
       headers = {
         "Content-Type": "application/json"

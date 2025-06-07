@@ -32,34 +32,34 @@ class NoderedV1(XmppAgent):
       logger.debug(f"prompt: {prompt}")
       logger.debug(f'self.config.options: {self.config.options}')
 
-      webhook = self.config.options.webhook
-      url = f"{NODERED_URL}{webhook.route}"
+      nodered = self.config.options.nodered
+      url = f"{NODERED_URL}{nodered.route}"
       logger.debug(f"url: {url}")
       headers = {
         "Content-Type": "application/json"
       }
 
       payload = {}
-      if hasattr(webhook, 'payload'):
-        payload = copy.deepcopy(webhook.payload)
-      if hasattr(webhook, 'parseJson') and webhook.parseJson:
+      if hasattr(nodered, 'payload'):
+        payload = copy.deepcopy(nodered.payload)
+      if hasattr(nodered, 'parseJson') and nodered.parseJson:
         try:
           parsed_json = extract_and_parse_json(prompt)
           logger.debug(f'parsed_json: {parsed_json}')
           payload.update(parsed_json)
         except Exception:
           pass
-      if hasattr(webhook, 'promptKey'):
-        payload[webhook.promptKey] = prompt
+      if hasattr(nodered, 'promptKey'):
+        payload[nodered.promptKey] = prompt
       logger.debug(f"payload: {payload}")
 
       async with httpx.AsyncClient() as client:
         allowed_methods = {"get", "post", "put", "patch", "delete"}
-        method_lower = webhook.method.lower()
+        method_lower = nodered.method.lower()
         if method_lower not in allowed_methods:
-          raise ValueError(f"Unsupported method: {webhook.method}")
+          raise ValueError(f"Unsupported method: {nodered.method}")
 
-        client_method_func = getattr(client, webhook.method.lower())
+        client_method_func = getattr(client, nodered.method.lower())
         response = await client_method_func(url, json=payload, headers=headers)
         response.raise_for_status()  # Raise exception for bad status codes
 

@@ -46,31 +46,30 @@ class SttV1(XmppAgent):
 
       content = ''
 
-      if self.config.options.stt.model.provider == 'openai':
-        file_urls = self.file_manager.get_file_urls()
-        logger.debug(f"file_urls: {file_urls}")
-        files_iobytes = self.file_manager.get_files_iobytes()
-        # logger.debug(f"files_iobytes: {files_iobytes}")
-        for file_iobytes, url in zip(files_iobytes, file_urls):
-          # logger.debug(f"file_iobytes: {file_iobytes}")
-          logger.debug(f"url: {url}")
-          filename = self.file_manager.get_filename_from_url(url)
-          logger.debug(f"filename: {filename}")
-          file_iobytes.name = filename
-          file_iobytes.seek(0)
+      file_urls = self.file_manager.get_file_urls()
+      logger.debug(f"file_urls: {file_urls}")
+      files_iobytes = self.file_manager.get_files_iobytes()
+      # logger.debug(f"files_iobytes: {files_iobytes}")
+      for file_iobytes, url in zip(files_iobytes, file_urls):
+        # logger.debug(f"file_iobytes: {file_iobytes}")
+        logger.debug(f"url: {url}")
+        filename = self.file_manager.get_filename_from_url(url)
+        logger.debug(f"filename: {filename}")
+        file_iobytes.name = filename
+        file_iobytes.seek(0)
+
+        if self.config.options.stt.model.provider == 'openai':
           result = self.client.audio.transcriptions.create(
             model=self.config.options.stt.model.name,
             file=file_iobytes,
             language=self.config.options.stt.language,
           )
-          logger.debug(f"result: {result}")
+          logger.debug(f"openai result: {result}")
           content += result.text
+        else:
+          raise Exception(f"Unknown model provider: {self.config.options.stt.model.provider}")
 
-        self.file_manager.clear()
-
-      else:
-        raise Exception(f"Unknown model provider: {self.config.options.stt.model.provider}")
-
+      self.file_manager.clear()
       return content
     except Exception as e:
       logger.error(f"Stt error: {e}")

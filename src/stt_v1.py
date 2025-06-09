@@ -22,8 +22,8 @@ class SttV1(XmppAgent):
   async def start(self):
     await super().start()
     try:
-      logger.debug(f"self.config.options.stt: {self.config.options.stt}")
-      logger.debug(f"self.config.options.stt.model: {self.config.options.stt.model}")
+      # logger.debug(f"self.config.options.stt: {self.config.options.stt}")
+      # logger.debug(f"self.config.options.stt.model: {self.config.options.stt.model}")
       if self.config.options.stt.model.provider == 'openai':
         self.client = OpenAI(
           api_key=self.config.options.stt.model.apiKey or None,

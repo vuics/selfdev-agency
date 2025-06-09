@@ -320,12 +320,26 @@ class XmppAgent(ClientXMPP):
     self.add_event_handler("muc::%s::got_online" % room_jid, self.muc_online)
     self.plugin['xep_0045'].join_muc(room_jid, self.nick)
 
-  async def upload_file(self, *, file_base64: str, filename: str, content_type: str = None):
+  async def upload_file(self, *,
+                        file_base64: str = None,
+                        file_bytes: str = None,
+                        file_iobytes: str = None,
+                        filename: str,
+                        content_type: str = None
+                        ):
     try:
-      # Decode base64 to bytes
-      file_bytes = base64.b64decode(file_base64)
-      file_buffer = BytesIO(file_bytes)
+      if file_base64:
+        file_bytes = base64.b64decode(file_base64)
+        file_iobytes = BytesIO(file_bytes)
+      elif file_bytes:
+        file_iobytes = BytesIO(file_bytes)
+      elif file_iobytes:
+        file_bytes = file_iobytes.getvalue()
+      else:
+        raise Exception('Unknown file format')
+
       size = len(file_bytes)
+      file_iobytes.seek(0)
 
       if not content_type:
         mime = magic.Magic(mime=True)
@@ -363,7 +377,8 @@ class XmppAgent(ClientXMPP):
       if auth_token:
         headers['Authorization'] = auth_token
       async with ClientSession() as session:
-        async with session.put(put_url, data=file_buffer, headers=headers, ssl=SSL_VERIFY) as resp:
+        file_iobytes.seek(0)
+        async with session.put(put_url, data=file_iobytes, headers=headers, ssl=SSL_VERIFY) as resp:
           if resp.status not in (200, 201):
             text = await resp.text()
             raise Exception(f"Upload failed with status {resp.status}: {text}")

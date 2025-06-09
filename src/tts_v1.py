@@ -21,6 +21,8 @@ class TtsV1(XmppAgent):
   async def start(self):
     await super().start()
     try:
+      # logger.debug(f"self.config.options.tts: {self.config.options.tts}")
+      # logger.debug(f"self.config.options.tts.model: {self.config.options.tts.model}")
       if self.config.options.tts.model.provider == 'openai':
         self.client = OpenAI(
           api_key=self.config.options.tts.model.apiKey or None,
@@ -39,49 +41,32 @@ class TtsV1(XmppAgent):
         raise Exception("Client was not initialized")
 
       if self.config.options.tts.model.provider == 'openai':
-        params = {
-          "prompt": prompt,
-          "model": self.config.options.tts.model.name,
-          "size": self.config.options.tts.size,
-          "n": self.config.options.tts.n,
-          "user": f"user_{self.config.userId}",
-          "response_format": "b64_json",
-        }
-        if self.config.options.tts.model.name == "dall-e-3":
-          params["quality"] = self.config.options.tts.quality
-          params["style"] = self.config.options.tts.style
-
-        img = self.client.images.generate(**params)
-        # logger.debug(f"img: {img}")
-
-        content = ''
-        for index, data_item in enumerate(img.data):
-          image_base64 = data_item.b64_json
-          # logger.debug(f"image_base64: {image_base64}")
-          get_url = await self.upload_file(
-            file_base64=image_base64,
-            filename=f'image_{index}.png',
-            content_type='image/png',
-          )
-          logger.info(f"get_url: {get_url}")
-          if reply_func:
-            reply_func(get_url)
-          content += f'![Generated Image]({get_url})'
-        return content
-
+        result = self.client.audio.speech.create(
+          model=self.config.options.tts.model.name,
+          voice=self.config.options.tts.model.voice,
+          input=prompt,
+        )
+        # logger.debug(f"openai result: {result}")
+        file_bytes = result.content
+        filename = "speech.mp3"
+        content_type = "audio/mpeg"
       else:
         raise Exception(f"Unknown model provider: {self.config.options.tts.model.provider}")
 
-      # image_bytes = base64.b64decode(img.data[0].b64_json)
-      # logger.debug(f"image_bytes: {image_bytes}")
-      # return image_bytes
+      get_url = await self.upload_file(
+        file_bytes=file_bytes,
+        filename=filename,
+        content_type=content_type,
+      )
+      logger.info(f"get_url: {get_url}")
 
-      # if self.file_manager.is_shared_file_url(prompt):
-      #   return self.file_manager.add_file_url(prompt)
-      # files_info = self.file_manager.get_files_info()
-      # if files_info:
-      #   self.file_manager.clear()
+      if reply_func:
+        reply_func(get_url)
 
+      content = f'<audio controls><source src="{get_url}" type="{content_type}">Your browser does not support the audio element.</audio>'
+      logger.debug(f"content: {content}")
+
+      return content
     except Exception as e:
       logger.error(f"Tts error: {e}")
       return f"Error: {str(e)}"

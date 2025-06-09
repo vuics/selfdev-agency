@@ -323,6 +323,7 @@ class RagV1(XmppAgent):
           # logger.debug(f"url: {url}")
           filename = self.file_manager.get_filename_from_url(url)
           # logger.debug(f"filename: {filename}")
+          file_iobytes.seek(0)
           loader = UnstructuredLoader(
             file=file_iobytes,
             url=url,

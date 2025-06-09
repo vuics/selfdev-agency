@@ -1,5 +1,5 @@
 '''
-ImagegenV1 Agent Archetype
+TtsV1 Agent Archetype
 '''
 import logging
 
@@ -7,25 +7,26 @@ from openai import OpenAI
 
 from xmpp_agent import XmppAgent
 
-logger = logging.getLogger("ImagegenV1")
+logger = logging.getLogger("TtsV1")
 
 
-class ImagegenV1(XmppAgent):
+class TtsV1(XmppAgent):
   '''
-  ImagegenV1 provides image generation
+  TtsV1 provides speech synthesis from text to audio
   '''
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
+    # self.file_manager = FileManager()
 
   async def start(self):
     await super().start()
     try:
-      if self.config.options.imagegen.model.provider == 'openai':
+      if self.config.options.tts.model.provider == 'openai':
         self.client = OpenAI(
-          api_key=self.config.options.imagegen.model.apiKey or None,
+          api_key=self.config.options.tts.model.apiKey or None,
         )
       else:
-        raise Exception(f"Unknown model provider: {self.config.options.imagegen.model.provider}")
+        raise Exception(f"Unknown model provider: {self.config.options.tts.model.provider}")
       logger.debug(f"Client initialized: {self.client}")
     except Exception as e:
       logger.error(f"Error initializing model: {e}")
@@ -37,18 +38,18 @@ class ImagegenV1(XmppAgent):
       if not self.client:
         raise Exception("Client was not initialized")
 
-      if self.config.options.imagegen.model.provider == 'openai':
+      if self.config.options.tts.model.provider == 'openai':
         params = {
           "prompt": prompt,
-          "model": self.config.options.imagegen.model.name,
-          "size": self.config.options.imagegen.size,
-          "n": self.config.options.imagegen.n,
+          "model": self.config.options.tts.model.name,
+          "size": self.config.options.tts.size,
+          "n": self.config.options.tts.n,
           "user": f"user_{self.config.userId}",
           "response_format": "b64_json",
         }
-        if self.config.options.imagegen.model.name == "dall-e-3":
-          params["quality"] = self.config.options.imagegen.quality
-          params["style"] = self.config.options.imagegen.style
+        if self.config.options.tts.model.name == "dall-e-3":
+          params["quality"] = self.config.options.tts.quality
+          params["style"] = self.config.options.tts.style
 
         img = self.client.images.generate(**params)
         # logger.debug(f"img: {img}")
@@ -69,8 +70,18 @@ class ImagegenV1(XmppAgent):
         return content
 
       else:
-        raise Exception(f"Unknown model provider: {self.config.options.imagegen.model.provider}")
+        raise Exception(f"Unknown model provider: {self.config.options.tts.model.provider}")
+
+      # image_bytes = base64.b64decode(img.data[0].b64_json)
+      # logger.debug(f"image_bytes: {image_bytes}")
+      # return image_bytes
+
+      # if self.file_manager.is_shared_file_url(prompt):
+      #   return self.file_manager.add_file_url(prompt)
+      # files_info = self.file_manager.get_files_info()
+      # if files_info:
+      #   self.file_manager.clear()
 
     except Exception as e:
-      logger.error(f"Imagegen error: {e}")
+      logger.error(f"Tts error: {e}")
       return f"Error: {str(e)}"

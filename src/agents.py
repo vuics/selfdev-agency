@@ -115,6 +115,8 @@ logging.getLogger("httpcore").setLevel(logging.INFO)
 ARCHETYPE_CLASSES = {
   "chat-v1.0": ChatV1,
   "rag-v1.0": RagV1,
+  "stt-v1.0": SttV1,
+  "tts-v1.0": TtsV1,
   "imagegen-v1.0": ImagegenV1,
   "code-v1.0": CodeV1,
   "quantum-v1.0": QuantumV1,
@@ -123,8 +125,6 @@ ARCHETYPE_CLASSES = {
   "langflow-v1.0": LangflowV1,
   "nodered-v1.0": NoderedV1,
   "notebook-v1.0": NotebookV1,
-  "stt-v1.0": SttV1,
-  "tts-v1.0": TtsV1,
 }
 
 # Running agents registry

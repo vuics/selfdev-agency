@@ -56,11 +56,13 @@ class TtsV1(XmppAgent):
           model=self.config.options.tts.model.name,
           voice=self.config.options.tts.model.voice,
           input=prompt,
+          response_format=self.config.options.tts.format,
+          speed=self.config.options.tts.speed,
         )
         # logger.debug(f"openai result: {result}")
         file_bytes = result.content
-        filename = "speech.mp3"
-        content_type = "audio/mpeg"
+        filename = f"speech.{self.config.options.tts.format}"
+        content_type = self.get_content_type(self.config.options.tts.format)
       else:
         raise Exception(f"Unknown model provider: {self.config.options.tts.model.provider}")
 
@@ -81,3 +83,12 @@ class TtsV1(XmppAgent):
     except Exception as e:
       logger.error(f"Tts error: {e}")
       return f"Error: {str(e)}"
+
+  def get_content_type(self, format):
+    format_to_content_type = {
+      'mp3': 'audio/mpeg',
+      'flac': 'audio/flac',
+      'wav': 'audio/wav',
+      'pcm': 'audio/L16'  # PCM audio, 16-bit linear, might vary by context
+    }
+    return format_to_content_type.get(format.lower(), 'application/octet-stream')  # Fallback for unknown types

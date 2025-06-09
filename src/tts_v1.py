@@ -1,13 +1,19 @@
 '''
 TtsV1 Agent Archetype
 '''
+import os
 import logging
 
+from dotenv import load_dotenv
 from openai import OpenAI
 
 from xmpp_agent import XmppAgent
 
 logger = logging.getLogger("TtsV1")
+
+load_dotenv()
+
+SPEACHES_BASE_URL = os.getenv("SPEACHES_BASE_URL", "http://localhost:8000/v1")
 
 
 class TtsV1(XmppAgent):
@@ -27,6 +33,11 @@ class TtsV1(XmppAgent):
         self.client = OpenAI(
           api_key=self.config.options.tts.model.apiKey or None,
         )
+      elif self.config.options.tts.model.provider == 'speaches':
+        self.client = OpenAI(
+          api_key="any-value-is-ok",
+          base_url=SPEACHES_BASE_URL,
+        )
       else:
         raise Exception(f"Unknown model provider: {self.config.options.tts.model.provider}")
       logger.debug(f"Client initialized: {self.client}")
@@ -40,7 +51,7 @@ class TtsV1(XmppAgent):
       if not self.client:
         raise Exception("Client was not initialized")
 
-      if self.config.options.tts.model.provider == 'openai':
+      if self.config.options.tts.model.provider in ['openai', 'speaches']:
         result = self.client.audio.speech.create(
           model=self.config.options.tts.model.name,
           voice=self.config.options.tts.model.voice,

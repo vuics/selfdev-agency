@@ -1,14 +1,21 @@
 '''
 SttV1 Agent Archetype
 '''
+import os
 import logging
 
+from dotenv import load_dotenv
 from openai import OpenAI
+import httpx
 
 from xmpp_agent import XmppAgent
 from file_manager import FileManager
 
 logger = logging.getLogger("SttV1")
+
+load_dotenv()
+
+SPEACHES_BASE_URL = os.getenv("SPEACHES_BASE_URL", "http://localhost:8000/v1")
 
 
 class SttV1(XmppAgent):
@@ -27,6 +34,11 @@ class SttV1(XmppAgent):
       if self.config.options.stt.model.provider == 'openai':
         self.client = OpenAI(
           api_key=self.config.options.stt.model.apiKey or None,
+        )
+      elif self.config.options.stt.model.provider == 'speaches':
+        self.client = OpenAI(
+          api_key="any-value-is-ok",
+          base_url=SPEACHES_BASE_URL,
         )
       else:
         raise Exception(f"Unknown model provider: {self.config.options.stt.model.provider}")
@@ -58,7 +70,7 @@ class SttV1(XmppAgent):
         file_iobytes.name = filename
         file_iobytes.seek(0)
 
-        if self.config.options.stt.model.provider == 'openai':
+        if self.config.options.stt.model.provider in ['openai', 'speaches']:
           result = self.client.audio.transcriptions.create(
             model=self.config.options.stt.model.name,
             file=file_iobytes,

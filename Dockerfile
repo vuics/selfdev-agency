@@ -74,4 +74,6 @@ COPY ./input/ ./input/
 ENV PYTHONPATH="${PYTHONPATH}:/opt/app/input/selfdev-notebooks/"
 
 # Run the XMPP agency by default
-CMD ["python", "-m", "src.xmpp_agency"]
+# CMD ["python", "-m", "src.xmpp_agency"]
+CMD ["nodemon", "--exec", "python", "src/agents.py"]
+

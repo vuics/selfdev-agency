@@ -88,7 +88,13 @@ class AvatarV1(XmppAgent):
       if self.config.options.avatar.model.provider == 'sadtalker':
 
         # logger.debug(f"avatar result: {result}")
-        with httpx.Client(timeout=httpx.Timeout(AVATAR_TIMEOUT)) as client:
+        timeout = httpx.Timeout(
+          connect=60.0,  # allow up to 60s to establish connection
+          read=AVATAR_TIMEOUT,  # wait up to 24h for a response (idle timeout)
+          write=300.0,   # allow up to 5min to upload files
+          pool=300.0     # connection pool timeout
+        )
+        with httpx.Client(timeout=timeout) as client:
           logger.debug(f'Sending files to {AVATAR_URL}/process')
           result = client.post(f"{AVATAR_URL}/process", files=files)
           logger.debug(f"Process result: {result}")

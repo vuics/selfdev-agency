@@ -48,11 +48,13 @@ from box import Box
 import hvac
 
 from helpers import str_to_bool
+from xmpp_agent import XmppAgent
 
 # Import agent classes
-from xmpp_agent import XmppAgent
 from chat_v1 import ChatV1
 from rag_v1 import RagV1
+from stt_v1 import SttV1
+from tts_v1 import TtsV1
 from imagegen_v1 import ImagegenV1
 from code_v1 import CodeV1
 from quantum_v1 import QuantumV1
@@ -61,8 +63,7 @@ from command_v1 import CommandV1
 from langflow_v1 import LangflowV1
 from nodered_v1 import NoderedV1
 from notebook_v1 import NotebookV1
-from stt_v1 import SttV1
-from tts_v1 import TtsV1
+from avatar_v1 import AvatarV1
 
 # Load environment variables
 load_dotenv()
@@ -125,6 +126,7 @@ ARCHETYPE_CLASSES = {
   "langflow-v1.0": LangflowV1,
   "nodered-v1.0": NoderedV1,
   "notebook-v1.0": NotebookV1,
+  "avatar-v1.0": AvatarV1,
 }
 
 # Running agents registry

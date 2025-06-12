@@ -98,6 +98,22 @@ class FileManager:
     path = urlparse(url).path
     return os.path.basename(path)
 
+  def get_type_from_iobytes(self, file_iobytes):
+    try:
+      if isinstance(file_iobytes, BytesIO):
+        file_bytes = file_iobytes.getvalue()
+      elif isinstance(file_iobytes, bytes):
+        file_bytes = file_iobytes
+      else:
+        raise TypeError("Expected BytesIO or bytes")
+      mime = magic.Magic(mime=True)
+      mime_type = mime.from_buffer(file_bytes)
+      type_part = mime_type.split("/")[0]
+      return mime_type, type_part
+    except Exception as e:
+      logger.error(f"Error getting file type from iobytes: {e}")
+      return None, None
+
   def get_file_info_from_bytes(self, file_bytes):
     try:
       mime = magic.Magic(mime=True)

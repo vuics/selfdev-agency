@@ -94,9 +94,9 @@ class AvatarV1(XmppAgent):
           write=300.0,   # allow up to 5min to upload files
           pool=300.0     # connection pool timeout
         )
-        with httpx.Client(timeout=timeout) as client:
+        async with httpx.AsyncClient(timeout=timeout) as client:
           logger.debug(f'Sending files to {AVATAR_URL}/process')
-          result = client.post(f"{AVATAR_URL}/process", files=files)
+          result = await client.post(f"{AVATAR_URL}/process", files=files)
           logger.debug(f"Process result: {result}")
           result.raise_for_status()
 
@@ -104,7 +104,7 @@ class AvatarV1(XmppAgent):
           content_disposition = result.headers.get("content-disposition", "")
           filename = "output_video.mp4"  # default fallback
           if "filename=" in content_disposition:
-              filename = content_disposition.split("filename=")[-1].strip().strip('"')
+            filename = content_disposition.split("filename=")[-1].strip().strip('"')
           # Extract Content-Type header
           content_type = result.headers.get("content-type", "application/octet-stream")
 
@@ -126,6 +126,7 @@ class AvatarV1(XmppAgent):
         raise Exception(f"Unknown model provider: {self.config.options.avatar.model.provider}")
 
       self.file_manager.clear()
+      # logger.debug(f"return content: {content}")
       return content
     except Exception as e:
       logger.error(f"Avatar error: {e}")

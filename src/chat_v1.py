@@ -13,6 +13,7 @@ from langchain_community.chat_message_histories import MongoDBChatMessageHistory
 from base_model import init_model
 from xmpp_agent import XmppAgent
 from file_manager import FileManager
+from metering import meter_event
 
 logger = logging.getLogger("ChatV1")
 
@@ -93,6 +94,11 @@ class ChatV1(XmppAgent):
         self.chat_history.add_ai_message(ai_msg.content)
 
       logger.debug(f"model response: {ai_msg.content}")
+
+      meter_event(event_name="test1-meter",
+                  customerId=self.customerId,
+                  value=1)
+
       return ai_msg.content
 
     except Exception as e:

@@ -37,7 +37,9 @@ class XmppAgent(ClientXMPP):
   A Base XMPP Agent
   """
 
-  def __init__(self, *, host, user, password, muc_host, join_rooms, nick, config, ownername):
+  def __init__(self, *,
+               host, user, password, muc_host, join_rooms, nick, config,
+               ownername, customerId):
     jid = f"{user}@{ownername}.{host}"
     super().__init__(jid, password)
     # ClientXMPP.__init__(self, jid, password)
@@ -53,6 +55,7 @@ class XmppAgent(ClientXMPP):
     self.join_room_jids = [f"{room}@{muc_host}" for room in self.join_rooms]
     self.config = config
     self.ownername = ownername
+    self.customerId = customerId
 
     # logger.debug(f'jid: {self.jid}')
     # logger.debug(f'host: {self.host}')

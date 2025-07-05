@@ -485,6 +485,7 @@ async def start_agent(config: AgentConfig) -> Optional[XmppAgent]:
       nick=config.name,  # Use agent name as XMPP nickname
       config=config,
       ownername=(config.user.get('xmpp')['user']).lower(),
+      customerId=(config.user.get('stripe') or {}).get('customerId')
     )
     asyncio.create_task(agent.start())
 

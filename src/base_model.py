@@ -342,3 +342,28 @@ def init_embeddings(*, model_provider, embeddings_name, api_key):
     raise ValueError(f"Unknown Embeddings model provider: {model_provider}")
 
   return embeddings
+
+
+def extract_total_tokens(ai_msg):
+  '''
+  To extract total_tokens safely and portably across different model providers using LangChain.
+  Different model providers (like OpenAI, Anthropic, TogetherAI, etc.) have inconsistent metadata structures, but LangChain often maps them to a consistent structure when possible.
+  '''
+  # LangChain's output may have `.response_metadata` or `.generation_info` depending on model/provider
+  metadata = getattr(ai_msg, "response_metadata", None) or getattr(ai_msg, "generation_info", {})
+
+  # Try OpenAI-style token usage
+  token_usage = metadata.get("token_usage") or metadata.get("usage") or {}
+
+  total_tokens = token_usage.get("total_tokens")
+  if total_tokens is not None:
+    return total_tokens
+
+  # As fallback, calculate manually if possible
+  input_tokens = token_usage.get("input_tokens") or token_usage.get("prompt_tokens")
+  output_tokens = token_usage.get("output_tokens") or token_usage.get("completion_tokens")
+  if input_tokens is not None and output_tokens is not None:
+    return input_tokens + output_tokens
+
+  # Total tokens not found
+  return None

@@ -10,7 +10,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 # from langchain.memory.chat_message_histories import MongoDBChatMessageHistory
 from langchain_community.chat_message_histories import MongoDBChatMessageHistory
 
-from base_model import init_model
+from base_model import init_model, extract_total_tokens
 from xmpp_agent import XmppAgent
 from file_manager import FileManager
 from metering import meter_event
@@ -87,6 +87,7 @@ class ChatV1(XmppAgent):
 
       # Call model with full context
       ai_msg = await self.model.ainvoke(messages)
+      logger.debug(f"model ai_msg: {ai_msg}")
 
       if self.chat_history:
         # Save messages to history
@@ -95,9 +96,16 @@ class ChatV1(XmppAgent):
 
       logger.debug(f"model response: {ai_msg.content}")
 
-      meter_event(event_name="test1-meter",
+      total_tokens = extract_total_tokens(ai_msg) or 1
+      logger.debug(f"Total tokens used: {total_tokens}")
+
+      # meter_event(event_name="test1-meter",
+      #             customerId=self.customerId,
+      #             value=total_tokens)
+
+      meter_event(event_name="test5-meter1",
                   customerId=self.customerId,
-                  value=1)
+                  value=total_tokens)
 
       return ai_msg.content
 

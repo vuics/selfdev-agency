@@ -103,7 +103,7 @@ class ChatV1(XmppAgent):
       #             customerId=self.customerId,
       #             value=total_tokens)
 
-      meter_event(event_name="test5-meter1",
+      meter_event(event_name="meter1",
                   customerId=self.customerId,
                   value=total_tokens)
 

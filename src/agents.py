@@ -171,9 +171,13 @@ class AgentConfig:
   def get_vault_value(self, vault_key: str) -> str:
     if not vault_client:
       return ''
-    read_response = vault_client.secrets.kv.read_secret_version(path=f'user_{self.userId}')
-    vault_value = read_response['data']['data'][vault_key]
-    return vault_value
+    try:
+      read_response = vault_client.secrets.kv.read_secret_version(path=f'user_{self.userId}')
+      vault_value = read_response['data']['data'][vault_key]
+      return vault_value
+    except Exception as e:
+      logger.error(f"Error reading secret {vault_key} from Vault for user_{self.userId}: {e}")
+      return None
 
   def replace_vault_values(self, obj: Any):
     if not vault_client:

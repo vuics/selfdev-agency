@@ -1,4 +1,6 @@
 .env
+.env.gke
+
 credentials.json
 token.json
 token.pickle

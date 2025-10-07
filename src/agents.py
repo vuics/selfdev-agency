@@ -62,6 +62,7 @@ from storage_v1 import StorageV1
 from command_v1 import CommandV1
 from langflow_v1 import LangflowV1
 from nodered_v1 import NoderedV1
+from n8n_v1 import N8nV1
 from notebook_v1 import NotebookV1
 from avatar_v1 import AvatarV1
 
@@ -125,6 +126,7 @@ ARCHETYPE_CLASSES = {
   "command-v1.0": CommandV1,
   "langflow-v1.0": LangflowV1,
   "nodered-v1.0": NoderedV1,
+  "n8n-v1.0": N8nV1,
   "notebook-v1.0": NotebookV1,
   "avatar-v1.0": AvatarV1,
 }

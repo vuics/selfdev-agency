@@ -11,7 +11,7 @@ from langchain_ibm import ChatWatsonx
 from databricks_langchain import ChatDatabricks
 from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 from langchain_ai21 import ChatAI21
-from langchain_upstage import ChatUpstage
+# from langchain_upstage import ChatUpstage
 from langchain_xai import ChatXAI
 from langchain_community.chat_models import ChatPerplexity
 # from langchain_community.chat_models import ChatLlamaCpp
@@ -269,10 +269,11 @@ def init_model(*, model_provider, model_name, api_key):
       temperature=0,
       api_key=api_key or None,
     )
-  elif model_provider == "upstage":
-    model = ChatUpstage(
-      api_key=api_key or None,
-    )
+  # FIXME: temporarily disabled
+  # elif model_provider == "upstage":
+  #   model = ChatUpstage(
+  #     api_key=api_key or None,
+  #   )
   elif model_provider == "xai":
     model = ChatXAI(
       model=model_name,

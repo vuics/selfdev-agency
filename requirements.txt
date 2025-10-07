@@ -46,7 +46,7 @@ databricks-langchain==0.3.0
 langchain-huggingface==0.1.2
 langchain-ollama==0.2.3
 langchain-ai21==1.0.1
-langchain-upstage==0.6.0
+# langchain-upstage==0.6.0  # langchain-upstage==0.7.3  # FIXME: temporarily disabled since causes errors
 langchain-xai==0.2.0
 
 text-generation==0.7.0

@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+
+# TODO: Refactor to simplify:
+# TODO: 1. Take selfdev-swarm as an example. It is the same as this module but on Node.js.
+# TODO: 1. Use agent._id instead of agent names for redis locks. What if 2 users have agents with the same name? But agentIds are always unique.
+# TODO: 2. Make it without AgentConfig, just agent with populater userId (agent.userId)
+
 '''
 XMPP Agency - Manages and runs XMPP agents based on MongoDB configuration
 
@@ -74,7 +80,7 @@ DB_URL = os.getenv("DB_URL", "mongodb://mongo.dev.local:27017/selfdev")
 
 # XMPP default settings
 XMPP_HOST = os.getenv("XMPP_HOST", "selfdev-prosody.dev.local")
-XMPP_PASSWORD = os.getenv("XMPP_PASSWORD", "123")
+XMPP_PASSWORD = os.getenv("XMPP_PASSWORD", "123")    # FIXME: XMPP_PASSWORD = os.getenv("XMPP_PASSWORD", "a-geNt-$sec-ret-10m_pp"), to fix it, need to delete all registered agents from prosody
 XMPP_MUC_HOST = os.getenv("XMPP_MUC_HOST", f"conference.{XMPP_HOST}")
 
 # Agent monitoring settings

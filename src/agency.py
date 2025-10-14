@@ -79,7 +79,7 @@ DB_URL = os.getenv("DB_URL", "mongodb://mongo.dev.local:27017/selfdev")
 
 # XMPP default settings
 XMPP_HOST = os.getenv("XMPP_HOST", "selfdev-prosody.dev.local")
-XMPP_PASSWORD = os.getenv("XMPP_PASSWORD", "123")    # FIXME: XMPP_PASSWORD = os.getenv("XMPP_PASSWORD", "a-geNt-$sec-ret-10m_pp"), to fix it, need to delete all registered agents from prosody
+XMPP_PASSWORD = os.getenv("XMPP_PASSWORD", "a-geNt-$sec-ret-10m_pp")
 XMPP_MUC_HOST = os.getenv("XMPP_MUC_HOST", f"conference.{XMPP_HOST}")
 
 # Agent monitoring settings

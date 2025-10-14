@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 
 # TODO: Refactor to simplify:
-# TODO: 1. Take selfdev-swarm as an example. It is the same as this module but on Node.js.
-# TODO: 1. Use agent._id instead of agent names for redis locks. What if 2 users have agents with the same name? But agentIds are always unique.
-# TODO: 2. Make it without AgentConfig, just agent with populater userId (agent.userId)
+#         1. Take selfdev-swarm as an example. It is the same as this module but on Node.js.
+#            Make it without AgentConfig, just agent with populater userId (agent.userId)
 
 '''
 XMPP Agency - Manages and runs XMPP agents based on MongoDB configuration
@@ -115,7 +114,7 @@ logger = logging.getLogger("agents")
 
 logging.getLogger("pymongo").setLevel(logging.INFO)
 logging.getLogger("motor").setLevel(logging.INFO)
-# logging.getLogger("slixmpp").setLevel(logging.INFO)
+logging.getLogger("slixmpp").setLevel(logging.INFO)
 logging.getLogger("httpx").setLevel(logging.INFO)
 logging.getLogger("httpcore").setLevel(logging.INFO)
 
@@ -165,13 +164,12 @@ class AgentConfig:
 
   def is_valid(self) -> bool:
     """Check if the agent configuration is valid and should be deployed"""
-    return bool(self.deployed and self.name and
+    return bool(self.deployed and
                 self.archetype in ARCHETYPE_CLASSES and
                 (True if not FILTER_ARCHETYPES else self.archetype in FILTER_ARCHETYPES))
 
   def __str__(self) -> str:
-    # return f"""{self.name}({self.archetype}, {self.deployed and 'deployed' or 'undeployed'}, {self.is_valid() and 'valid' or 'invalid'}) in {self.joinRooms}"""
-    return f"{self.name}({self.archetype})"
+    return f"{self.id}:{self.name}({self.archetype})"
 
   def __repr__(self) -> str:
     return self.__str__()
@@ -319,7 +317,7 @@ async def get_agent_configs(db) -> List[AgentConfig]:
     return []
 
 
-async def check_and_clear_stale_lock(agent_name: str) -> bool:
+async def check_and_clear_stale_lock(agent_id: str, agent_name: str) -> bool:
   """
   Check if a lock exists but is stale (no heartbeat updates)
   Returns True if lock was cleared or doesn't exist, False if lock is valid
@@ -328,8 +326,8 @@ async def check_and_clear_stale_lock(agent_name: str) -> bool:
     logger.error("Redis client not initialized")
     return False
 
-  lock_key = f"agent_lock:{agent_name}"
-  heartbeat_key = f"agent_heartbeat:{agent_name}"
+  lock_key = f"agent_lock:{agent_id}"
+  heartbeat_key = f"agent_heartbeat:{agent_id}"
 
   try:
     # Check if lock exists
@@ -342,7 +340,7 @@ async def check_and_clear_stale_lock(agent_name: str) -> bool:
     last_heartbeat = await redis_client.get(heartbeat_key)
     if not last_heartbeat:
       # No heartbeat, lock is stale
-      logger.warning(f"Found stale lock for agent {agent_name} with no heartbeat, clearing")
+      logger.warning(f"Found stale lock for agent {agent_id}:{agent_name} with no heartbeat, clearing")
       await redis_client.delete(lock_key)
       return True
 
@@ -352,13 +350,13 @@ async def check_and_clear_stale_lock(agent_name: str) -> bool:
       current_time = time.time()
       if current_time - heartbeat_time > LOCK_TIMEOUT:
         # Heartbeat is too old, lock is stale
-        logger.warning(f"Found stale lock for agent {agent_name} with old heartbeat, clearing")
+        logger.warning(f"Found stale lock for agent {agent_id}:{agent_name} with old heartbeat, clearing")
         await redis_client.delete(lock_key)
         await redis_client.delete(heartbeat_key)
         return True
     except (ValueError, TypeError):
       # Invalid heartbeat format, consider lock stale
-      logger.warning(f"Found lock with invalid heartbeat format for agent {agent_name}, clearing")
+      logger.warning(f"Found lock with invalid heartbeat format for agent {agent_id}:{agent_name}, clearing")
       await redis_client.delete(lock_key)
       await redis_client.delete(heartbeat_key)
       return True
@@ -366,11 +364,11 @@ async def check_and_clear_stale_lock(agent_name: str) -> bool:
     # Lock exists and has a recent heartbeat
     return False
   except Exception as e:
-    logger.error(f"Error checking stale lock for agent {agent_name}: {e}")
+    logger.error(f"Error checking stale lock for agent {agent_id}:{agent_name}: {e}")
     return False
 
 
-async def acquire_lock(agent_name: str) -> bool:
+async def acquire_lock(agent_id: str, agent_name: str) -> bool:
   """
   Acquire a distributed lock for an agent to ensure only one container runs it
 
@@ -380,22 +378,22 @@ async def acquire_lock(agent_name: str) -> bool:
     logger.error("Redis client not initialized")
     return False
 
-  lock_key = f"agent_lock:{agent_name}"
-  heartbeat_key = f"agent_heartbeat:{agent_name}"
+  lock_key = f"agent_lock:{agent_id}"
+  heartbeat_key = f"agent_heartbeat:{agent_id}"
 
   try:
     # Check if we already own this lock
     lock_owner = await redis_client.get(lock_key)
     if lock_owner and lock_owner.decode() == CONTAINER_ID:
-      logger.debug(f"Already own lock for agent {agent_name}")
+      logger.debug(f"Already own lock for agent {agent_id}:{agent_name}")
       # Update heartbeat
       await redis_client.set(heartbeat_key, str(time.time()), ex=LOCK_TIMEOUT * 2)
       return True
 
     # Check for and clear stale locks
-    lock_cleared = await check_and_clear_stale_lock(agent_name)
+    lock_cleared = await check_and_clear_stale_lock(agent_id, agent_name)
     if not lock_cleared:
-      logger.debug(f"Lock for agent {agent_name} is owned by {lock_owner}")
+      logger.debug(f"Lock for agent {agent_id}:{agent_name} is owned by {lock_owner}")
       return False
 
     # Try to acquire the lock with our container ID
@@ -409,24 +407,24 @@ async def acquire_lock(agent_name: str) -> bool:
     if acquired:
       # Set initial heartbeat
       await redis_client.set(heartbeat_key, str(time.time()), ex=LOCK_TIMEOUT * 2)
-      logger.info(f"Acquired lock for agent {agent_name}")
+      logger.info(f"Acquired lock for agent {agent_id}:{agent_name}")
       # Start a background task to refresh the lock
-      asyncio.create_task(refresh_lock(agent_name))
+      asyncio.create_task(refresh_lock(agent_id, agent_name))
       return True
     else:
-      logger.debug(f"Race condition: Failed to acquire lock for agent {agent_name}")
+      logger.debug(f"Race condition: Failed to acquire lock for agent {agent_id}:{agent_name}")
       return False
   except Exception as e:
-    logger.error(f"Error acquiring lock for agent {agent_name}: {e}")
+    logger.error(f"Error acquiring lock for agent {agent_id}:{agent_name}: {e}")
     return False
 
 
-async def refresh_lock(agent_name: str):
+async def refresh_lock(agent_id: str, agent_name: str):
   """Periodically refresh the lock to maintain ownership"""
-  lock_key = f"agent_lock:{agent_name}"
-  heartbeat_key = f"agent_heartbeat:{agent_name}"
+  lock_key = f"agent_lock:{agent_id}"
+  heartbeat_key = f"agent_heartbeat:{agent_id}"
 
-  while agent_name in running_agents:
+  while agent_id in running_agents:
     try:
       # Only refresh if we still own the lock
       lock_owner = await redis_client.get(lock_key)
@@ -435,26 +433,26 @@ async def refresh_lock(agent_name: str):
         await redis_client.expire(lock_key, LOCK_TIMEOUT)
         # Update heartbeat timestamp
         await redis_client.set(heartbeat_key, str(time.time()), ex=LOCK_TIMEOUT * 2)
-        logger.debug(f"Refreshed lock for agent {agent_name}")
+        logger.debug(f"Refreshed lock for agent {agent_id}:{agent_name}")
       else:
-        logger.warning(f"Lost lock ownership for agent {agent_name}")
+        logger.warning(f"Lost lock ownership for agent {agent_id}:{agent_name}")
         # We lost the lock, stop the agent
-        await stop_agent(agent_name)
+        await stop_agent(agent_id, agent_name)
         break
     except Exception as e:
-      logger.error(f"Error refreshing lock for agent {agent_name}: {e}")
+      logger.error(f"Error refreshing lock for agent {agent_id}:{agent_name}: {e}")
 
     # Wait before refreshing again
     await asyncio.sleep(LOCK_REFRESH)
 
 
-async def release_lock(agent_name: str):
+async def release_lock(agent_id: str, agent_name: str):
   """Release the distributed lock for an agent"""
   if not redis_client:
     return
 
-  lock_key = f"agent_lock:{agent_name}"
-  heartbeat_key = f"agent_heartbeat:{agent_name}"
+  lock_key = f"agent_lock:{agent_id}"
+  heartbeat_key = f"agent_heartbeat:{agent_id}"
 
   try:
     # Only delete the lock if we own it
@@ -462,9 +460,9 @@ async def release_lock(agent_name: str):
     if lock_owner and lock_owner.decode() == CONTAINER_ID:
       await redis_client.delete(lock_key)
       await redis_client.delete(heartbeat_key)
-      logger.info(f"Released lock for agent {agent_name}")
+      logger.info(f"Released lock for agent {agent_id}:{agent_name}")
   except Exception as e:
-    logger.error(f"Error releasing lock for agent {agent_name}: {e}")
+    logger.error(f"Error releasing lock for agent {agent_id}:{agent_name}: {e}")
 
 
 async def start_agent(config: AgentConfig) -> Optional[XmppAgent]:
@@ -475,9 +473,9 @@ async def start_agent(config: AgentConfig) -> Optional[XmppAgent]:
       return None
 
     # Try to acquire a distributed lock for this agent
-    lock_acquired = await acquire_lock(config.name)
+    lock_acquired = await acquire_lock(config.id, config.name)
     if not lock_acquired:
-      logger.info(f"Agent {config.archetype}({config.name}) is already running in another container")
+      logger.info(f"Agent {config.id}:{config.name}({config.archetype}) is already running in another container")
       return None
 
     # Get the appropriate agent class
@@ -501,29 +499,29 @@ async def start_agent(config: AgentConfig) -> Optional[XmppAgent]:
     )
     asyncio.create_task(agent.start())
 
-    logger.info(f"Started agent: {config.archetype} ({config.name})")
+    logger.info(f"Started agent: {config.archetype} ({config.id}:{config.name})")
     return agent
   except Exception as e:
     # Release the lock if we failed to start the agent
-    await release_lock(config.name)
-    logger.error(f"Error starting agent {config.name}: {e}")
+    await release_lock(config.id, config.name)
+    logger.error(f"Error starting agent {config.id}:{config.name}: {e}")
     traceback.print_exc()
     return None
 
 
-async def stop_agent(agent_name: str):
+async def stop_agent(agent_id: str, agent_name: str):
   """Stop a running agent"""
-  if agent_name in running_agents:
+  if agent_id in running_agents:
     try:
-      agent = running_agents[agent_name]
+      agent = running_agents[agent_id]
       await agent.disconnect()
-      del running_agents[agent_name]
-      logger.info(f"Stopped agent: {agent_name}")
+      del running_agents[agent_id]
+      logger.info(f"Stopped agent: {agent_id}:{agent_name}")
 
       # Release the distributed lock
-      await release_lock(agent_name)
+      await release_lock(agent_id, agent_name)
     except Exception as e:
-      logger.error(f"Error stopping agent {agent_name}: {e}")
+      logger.error(f"Error stopping agent {agent_id}:{agent_name}: {e}")
 
 
 async def sync_agents(db):
@@ -539,28 +537,28 @@ async def sync_agents(db):
   # Start new agents or update existing ones
   for config in configs:
     if config.is_valid():
-      should_run[config.name] = config
+      should_run[config.id] = config
 
-      if config.name not in running_agents:
+      if config.id not in running_agents:
         # Start new agent
-        logger.info(f'▶️ Start agent: {config.name}, config: {config}')
+        logger.info(f'▶️ Start agent: {config.id}:{config.name}, config: {config}')
         agent = await start_agent(config)
         if agent:
-          running_agents[config.name] = agent
+          running_agents[config.id] = agent
       else:
         # Check if config was updated, then need to restart the agent
-        if config.updatedAt != running_agents[config.name].config.updatedAt:
-          logger.info(f'🔄 Restart agent: {config.name}, config: {config} because its config got updated: old updatedAt: {config.updatedAt}, new updatedAt: {running_agents[config.name].config.updatedAt}.')
-          await stop_agent(config.name)
+        if config.updatedAt != running_agents[config.id].config.updatedAt:
+          logger.info(f'🔄 Restart agent: {config.id}:{config.name}, config: {config} because its config got updated: old updatedAt: {config.updatedAt}, new updatedAt: {running_agents[config.id].config.updatedAt}.')
+          await stop_agent(config.id, config.name)
           agent = await start_agent(config)
           if agent:
-            running_agents[config.name] = agent
+            running_agents[config.id] = agent
 
   # Stop agents that should no longer be running
-  for agent_name in list(running_agents.keys()):
-    if agent_name not in should_run:
-      logger.info(f'⏹️ Stop agent: {config.name}')
-      await stop_agent(agent_name)
+  for agent_id in list(running_agents.keys()):
+    if agent_id not in should_run:
+      logger.info(f'⏹️ Stop agent: {config.id}:{config.name}')
+      await stop_agent(agent_id, running_agents[agent_id].name)
   logger.debug(f'🐣 AFTER: running_agents: {running_agents}')
 
 
@@ -593,8 +591,8 @@ async def cleanup_locks():
           key_str = key.decode()
           lock_owner = await redis_client.get(key)
           if lock_owner and lock_owner.decode() == CONTAINER_ID:
-            agent_name = key_str.split(':')[1]
-            await release_lock(agent_name)
+            agent_id = key_str.split(':')[1]
+            await release_lock(agent_id, '(???)')
         except Exception as e:
           logger.error(f"Error cleaning up lock {key}: {e}")
 
@@ -622,8 +620,8 @@ async def shutdown():
   """Gracefully shut down the application"""
   logger.info("Shutting down XMPP agency...")
   # Stop all running agents
-  for agent_name in list(running_agents.keys()):
-    await stop_agent(agent_name)
+  for agent_id in list(running_agents.keys()):
+    await stop_agent(agent_id, '(???)')
 
   # Clean up any remaining locks
   await cleanup_locks()

@@ -56,6 +56,14 @@ RUN npm i -g node-gyp
 RUN npm i -g ijavascript
 RUN ijsinstall --install=global
 
+
+# Browser-Use requires python3.12
+#
+# RUN pip install --no-cache-dir uv
+# RUN uv pip install --system --no-cache-dir browser-use
+# RUN uvx browser-use install
+
+
 WORKDIR /opt/app/
 
 # NOTE: The requirements.txt is to cache big number of dependencies.

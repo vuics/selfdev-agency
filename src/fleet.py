@@ -3,6 +3,8 @@
 # TODO: Refactor to simplify:
 #         1. Take selfdev-swarm as an example. It is the same as this module but on Node.js.
 #            Make it without AgentConfig, just agent with populater userId (agent.userId)
+#         2. Files agency.py and fleet.py contain the same repeating code.
+#            Do not repeat yourself (DRY).
 
 '''
 XMPP Agency - Manages and runs XMPP agents based on MongoDB configuration

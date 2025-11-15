@@ -35,8 +35,8 @@ RUN npm i -g nodemon
 
 # Install uv (Python environment manager), Browser-Use system-wide,
 # Chromium for Browser-Use and set PATH to make uvx available
-RUN pip install --no-cache-dir uv
-RUN uv pip install --system --no-cache-dir browser-use
+RUN pip install --no-cache-dir uv==0.9.9
+RUN uv pip install --system --no-cache-dir browser-use==0.9.5
 RUN uvx browser-use install
 ENV PATH="/root/.local/bin:$PATH"
 

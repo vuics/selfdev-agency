@@ -53,6 +53,7 @@ from pymongo.errors import ConnectionFailure
 import redis.asyncio as redis
 from box import Box
 import hvac
+from opensearch import connect_to_opensearch, disconnect_from_opensearch
 
 from helpers import str_to_bool
 from xmpp_agent import XmppAgent
@@ -638,6 +639,8 @@ async def shutdown():
     await redis_client.close()
   logger.info("Shutdown complete")
 
+  await disconnect_from_opensearch()
+
 
 async def main():
   """Main entry point for the XMPP agency"""
@@ -652,8 +655,8 @@ async def main():
     db = mongo_client[db_name]
 
     await connect_to_redis()
-
     await connect_to_vault()
+    await connect_to_opensearch()
 
     logger.info(f"Starting XMPP agency with container ID: {CONTAINER_ID}")
 

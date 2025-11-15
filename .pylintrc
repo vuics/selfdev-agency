@@ -9,7 +9,7 @@
 # ```
 
 [MESSAGES CONTROL]
-disable=broad-except,line-too-long,logging-fstring-interpolation
+disable=broad-except,line-too-long,logging-fstring-interpolation,missing-function-docstring,
 
 [FORMAT]
 indent-string='  '

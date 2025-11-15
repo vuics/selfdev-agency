@@ -7,7 +7,7 @@ import ssl
 import asyncio
 import base64
 from io import BytesIO
-from xml.etree.ElementTree import QName
+# from xml.etree.ElementTree import QName
 
 from slixmpp import ClientXMPP
 import httpx
@@ -16,6 +16,7 @@ from aiohttp import ClientSession
 import magic
 
 from helpers import str_to_bool
+from opensearch import send_log
 
 logger = logging.getLogger("XmppAgent")
 
@@ -117,6 +118,18 @@ class XmppAgent(ClientXMPP):
     self.register_plugin('xep_0249')  # Direct MUC Invitations
     self.register_plugin("xep_0363")  # HTTP File Upload
 
+  async def slog(self, level: str, message: str, meta: dict = None):
+    logger.debug(f'slog level: {level} message: {message}')
+    if meta is None:
+      meta = {}
+    await send_log(level, message, {
+      **meta,
+      "agentId": self.config.id,
+      "userId": self.config.userId,
+      "archetype": self.config.archetype,
+      "name": self.config.name,
+    })
+
   async def connect(self):
     if self.reconnect_attempts == 0:
       logger.info("Connection attempt.")
@@ -198,10 +211,12 @@ class XmppAgent(ClientXMPP):
       self.plugin['xep_0045'].join_muc(room_jid, self.nick)
 
   async def start(self):
+    await self.slog('info', 'Starting agent')
     await self.register_user()
     await self.connect()
 
   async def chat(self, *, prompt, reply_func=None):
+    await self.slog('info', 'Agent received prompt')
     logger.warning("WARNING: XmppAgent.chat() should be defined in child class")
     return '(none)'
 
@@ -390,3 +405,7 @@ class XmppAgent(ClientXMPP):
     except Exception as e:
       logging.error(f"Error uploading file: {e}")
       return None
+
+  async def disconnect(self):
+    pass
+

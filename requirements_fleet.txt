@@ -74,3 +74,5 @@ pymongo==4.13.0
 hvac==2.3.0
 # stripe==11.4.1
 
+opensearch-py==3.0.0
+

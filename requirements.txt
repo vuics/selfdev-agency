@@ -96,4 +96,5 @@ qiskit-ibm-runtime==0.39.0
 hvac==2.3.0
 
 stripe==11.4.1
+opensearch-py==3.0.0
 

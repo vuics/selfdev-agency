@@ -5,9 +5,11 @@ import os
 import logging
 import re
 from urllib.parse import urlparse
+from datetime import datetime
 
 from dotenv import load_dotenv
 from pymongo import AsyncMongoClient
+from bson import ObjectId
 
 from xmpp_agent import XmppAgent
 
@@ -64,8 +66,8 @@ class StorageV1(XmppAgent):
       if re.match(self.regex_list, prompt):
         logger.debug("LIST command")
         cursor = self.storages.find({
-            "userId": self.config.userId,
-            "namespace": self.storage.namespace,
+          "userId": ObjectId(self.config.userId),
+          "namespace": self.storage.namespace,
         })
         items = await cursor.to_list(length=None)
         keys = [item["key"] for item in items]
@@ -81,7 +83,7 @@ class StorageV1(XmppAgent):
         default = match.groupdict().get("default")
         logger.debug(f"GET command with key: {key}, default: {default}")
         doc = await self.storages.find_one({
-          "userId": self.config.userId,
+          "userId": ObjectId(self.config.userId),
           "namespace": self.storage.namespace,
           "key": key,
         })
@@ -101,12 +103,19 @@ class StorageV1(XmppAgent):
         key = match.group("key")
         value = match.group("value")
         logger.debug(f"SET command with key: {key}, value: {value}")
+        now = datetime.utcnow()
         await self.storages.update_one({
-          "userId": self.config.userId,
+          "userId": ObjectId(self.config.userId),
           "namespace": self.storage.namespace,
           "key": key,
         }, {
-          "$set": {"value": value}
+          "$set": {
+            "value": value,
+            "updatedAt": now,          # update every time
+          },
+          "$setOnInsert": {
+            "createdAt": now           # only set on insert
+          }
         }, upsert=True)
         if self.storage.verbose == 2:
           content = f"Set key '{key}' to value '{value}'."
@@ -119,7 +128,7 @@ class StorageV1(XmppAgent):
         key = match.group("key")
         logger.debug(f"DELETE command with key: {key}")
         result = await self.storages.delete_one({
-          "userId": self.config.userId,
+          "userId": ObjectId(self.config.userId),
           "namespace": self.storage.namespace,
           "key": key,
         })

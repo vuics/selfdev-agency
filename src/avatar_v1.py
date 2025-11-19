@@ -119,7 +119,7 @@ class AvatarV1(XmppAgent):
           if reply_func:
             reply_func(get_url)
 
-          content = f'<video width="640" height="360" controls><source src="{get_url}" type="{content_type}">Your browser does not support the video tag.</video>'
+          content = f'<video width="640" height="360" controls><source src="{get_url}" type="{content_type}" />Your browser does not support the video tag.</video>'
           logger.debug(f"content: {content}")
 
       else:

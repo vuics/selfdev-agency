@@ -76,7 +76,7 @@ class TtsV1(XmppAgent):
       if reply_func:
         reply_func(get_url)
 
-      content = f'<audio controls><source src="{get_url}" type="{content_type}">Your browser does not support the audio element.</audio>'
+      content = f'<audio controls><source src="{get_url}" type="{content_type}" />Your browser does not support the audio element.</audio>'
       logger.debug(f"content: {content}")
 
       return content

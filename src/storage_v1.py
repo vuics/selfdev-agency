@@ -45,7 +45,8 @@ class StorageV1(XmppAgent):
       self.regex_append = re.compile(self.storage.commands.get("append", '^//APPEND\\s+(?P<key>\\S+)\\s+(?P<value>.+)$'))
       self.regex_delete = re.compile(self.storage.commands.get("delete", '^//DELETE\\s+(?P<key>\\S+)$'))
       self.regex_load = re.compile(self.storage.commands.get("load", '^//LOAD\\s+(?P<key>\\S+)$'))
-      self.regex_save = re.compile(self.storage.commands.get("save", '^//SAVE\\s+(?P<key>\\S+)(?:\\s+(?P<default>.+))?$'))
+      self.regex_save = re.compile(self.storage.commands.get("save", '^//SAVE\\s+(?P<key>\\S+)(?:\\s+(?P<filename>\\S+))?(?:\\s+(?P<default>.*))?$'))
+
       # logger.debug(f'regex_list: {self.regex_list}')
       # logger.debug(f'regex_get: {self.regex_get}')
       # logger.debug(f'regex_set: {self.regex_set}')
@@ -235,7 +236,6 @@ class StorageV1(XmppAgent):
           logger.debug(f"filename: {filename}")
           file_iobytes.name = filename
           file_iobytes.seek(0)
-          # value += file_iobytes.getValue().decode('utf-8')
           value += file_iobytes.read().decode('utf-8')
 
         logger.debug(f"LOAD command with key: {key}, value: {value}")
@@ -262,6 +262,9 @@ class StorageV1(XmppAgent):
 
       elif match := re.match(self.regex_save, prompt):
         key = match.group("key")
+        filename = match.groupdict().get("filename")
+        if not filename:
+          filename = f"{key}.txt"
         default = match.groupdict().get("default")
         logger.debug(f"SAVE command with key: {key}, default: {default}")
         doc = await self.storages.find_one({
@@ -286,8 +289,8 @@ class StorageV1(XmppAgent):
         if file_bytes:
           get_url = await self.upload_file(
             file_bytes=file_bytes,
-            filename=f"{key}.md",
-            content_type='text/markdown; charset=utf-8',
+            filename=filename,
+            content_type='text/plain; charset=utf-8',
           )
           logger.info(f"get_url: {get_url}")
           if reply_func:

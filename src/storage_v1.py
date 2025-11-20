@@ -33,13 +33,17 @@ class StorageV1(XmppAgent):
       self.storage = self.config.options.storage
       # logger.debug(f'self.storage: {self.storage}')
 
-      self.regex_list = re.compile(self.storage.commands["list"])
-      self.regex_get = re.compile(self.storage.commands["get"])
-      self.regex_set = re.compile(self.storage.commands["set"])
-      self.regex_delete = re.compile(self.storage.commands["delete"])
+
+
+      self.regex_list = re.compile(self.storage.commands.get("list", '^//LIST$'))
+      self.regex_get = re.compile(self.storage.commands.get("get", '^//GET\\s+(?P<key>\\S+)(?:\\s+(?P<default>.+))?$'))
+      self.regex_set = re.compile(self.storage.commands.get("set", '^//SET\\s+(?P<key>\\S+)\\s+(?P<value>.+)$'))
+      self.regex_append = re.compile(self.storage.commands.get("append", '^//APPEND\\s+(?P<key>\\S+)\\s+(?P<value>.+)$'))
+      self.regex_delete = re.compile(self.storage.commands.get("delete", '^//DELETE\\s+(?P<key>\\S+)$'))
       # logger.debug(f'regex_list: {self.regex_list}')
       # logger.debug(f'regex_get: {self.regex_get}')
       # logger.debug(f'regex_set: {self.regex_set}')
+      # logger.debug(f'regex_append: {self.regex_append}')
       # logger.debug(f'regex_delete: {self.regex_delete}')
 
       if self.storage.driver == "mongodb":
@@ -121,6 +125,62 @@ class StorageV1(XmppAgent):
           content = f"Set key '{key}' to value '{value}'."
         elif self.storage.verbose == 1:
           content = value
+        else:
+          content = " "
+
+      elif match := re.match(self.regex_append, prompt):
+        key = match.group("key")
+        value = match.group("value")
+        logger.debug(f"APPEND command with key: {key}, value: {value}")
+        now = datetime.utcnow()
+
+        # Try to find existing document
+        doc = await self.storages.find_one({
+          "userId": ObjectId(self.config.userId),
+          "namespace": self.storage.namespace,
+          "key": key,
+        })
+
+        if doc:
+          new_value = str(doc.get("value", "")) + str(value)
+          result = await self.storages.update_one(
+            {
+              "userId": ObjectId(self.config.userId),
+              "namespace": self.storage.namespace,
+              "key": key,
+            },
+            {
+              "$set": {
+                "value": new_value,
+                "updatedAt": now
+              }
+            }
+          )
+        else:
+          # If key does not exist, create it
+          new_value = value
+          await self.storages.update_one(
+            {
+              "userId": ObjectId(self.config.userId),
+              "namespace": self.storage.namespace,
+              "key": key,
+            },
+            {
+              "$set": {
+                "value": new_value,
+                "updatedAt": now
+              },
+              "$setOnInsert": {
+                "createdAt": now
+              }
+            },
+            upsert=True
+          )
+
+        if self.storage.verbose == 2:
+          content = f"Appended value to key '{key}'. New value: '{new_value}'."
+        elif self.storage.verbose == 1:
+          content = new_value
         else:
           content = " "
 

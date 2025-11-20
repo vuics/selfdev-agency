@@ -17,6 +17,8 @@ import magic
 
 from helpers import str_to_bool
 from opensearch import send_log
+from prometheus_client import Counter
+from prometheus import prometheus_registry
 
 logger = logging.getLogger("XmppAgent")
 
@@ -31,6 +33,20 @@ XMPP_SHARE_HOST = os.getenv("XMPP_SHARE_HOST", "share.localhost")
 
 # FIXME: Set verify=True to check the certificates
 SSL_VERIFY = str_to_bool(os.getenv("SSL_VERIFY", "true"))
+
+
+h9y_messages_received_total = Counter(
+  'h9y_messages_received_total',
+  'Number of messages the agent received from XMPP',
+  ['channel', 'agentId', 'userId', 'archetype', 'name'],
+  registry=prometheus_registry,
+)
+h9y_messages_sent_total = Counter(
+  'h9y_messages_sent_total',
+  'Number of messages the agent sent from XMPP',
+  ['channel', 'agentId', 'userId', 'archetype', 'name'],
+  registry=prometheus_registry,
+)
 
 
 class XmppAgent(ClientXMPP):
@@ -57,6 +73,13 @@ class XmppAgent(ClientXMPP):
     self.config = config
     self.ownername = ownername
     self.customerId = customerId
+
+    self.metadata = {
+      "agentId": self.config.id,
+      "userId": self.config.userId,
+      "archetype": self.config.archetype,
+      "name": self.config.name,
+    }
 
     # logger.debug(f'jid: {self.jid}')
     # logger.debug(f'host: {self.host}')
@@ -239,7 +262,10 @@ class XmppAgent(ClientXMPP):
     # logger.debug(f'msg from: {msg['from']}')
     if msg['type'] in ('chat', 'normal'):
       try:
+        h9y_messages_received_total.labels(channel='chat', **self.metadata).inc(1)
+
         def reply_func(content):
+          h9y_messages_sent_total.labels(channel='chat', **self.metadata).inc(1)
           self.send_message(mto=msg['from'].bare,
                             mbody=content,
                             mtype='chat')
@@ -278,7 +304,10 @@ class XmppAgent(ClientXMPP):
     # logger.debug(f'msg from: {msg['from']}')
     if msg['mucnick'] != self.nick and self.nick in msg['body']:
       try:
+        h9y_messages_received_total.labels(channel='group', **self.metadata).inc(1)
+
         def reply_func(content):
+          h9y_messages_sent_total.labels(channel='group', **self.metadata).inc(1)
           self.send_message(mto=msg['from'].bare,
                             mbody=content,
                             mtype='groupchat')

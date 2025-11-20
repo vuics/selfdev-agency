@@ -57,6 +57,7 @@ from opensearch import connect_to_opensearch, disconnect_from_opensearch
 
 from helpers import str_to_bool
 from xmpp_agent import XmppAgent
+from prometheus import prometheus_pusher
 
 # Import agent classes
 # from chat_v1 import ChatV1
@@ -670,9 +671,11 @@ async def main():
 
     # Start monitoring for changes
     monitor_task = asyncio.create_task(monitor_agents(db))
+    prometheus_task = asyncio.create_task(prometheus_pusher())
 
     # Keep the application running
     await monitor_task
+    await prometheus_task
   except Exception as e:
     logger.error(f"Fatal error in XMPP agency: {e}")
   finally:

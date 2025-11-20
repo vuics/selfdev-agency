@@ -24,6 +24,7 @@ class NotebookV1(XmppAgent):
   '''
   async def start(self):
     await super().start()
+    await self.slog('debug', 'Agent started')
 
   async def run_papermill(self, *, notebook_path, parameters=None,
                           kernel_name='python3', reply_func=None):
@@ -122,6 +123,7 @@ class NotebookV1(XmppAgent):
     try:
       os.remove(temp_output)
     except Exception as e:
+      await self.slog('warn', f'Clean up the temporary file {temp_output} error: {e}')
       logger.warning(f'Clean up the temporary file {temp_output} error: {e}')
 
     # NOTE: output contains all the text
@@ -159,5 +161,6 @@ class NotebookV1(XmppAgent):
       logger.debug(f"output: {output}")
       return output
     except Exception as e:
-      logger.error(f"Chat error: {e}")
+      await self.slog('error', f"Notebook error: {e}")
+      logger.error(f"Notebook error: {e}")
       return f'Error: {str(e)}'

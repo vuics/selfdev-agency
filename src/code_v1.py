@@ -44,15 +44,19 @@ class CodeV1(XmppAgent):
       self.kc = self.km.client()
       self.kc.start_channels()
 
+      await self.slog('debug', 'Agent started')
+
     except Exception as e:
-      logger.error(f"Error initializing model: {e}")
+      await self.slog('error', f"Error initializing: {e}")
+      logger.error(f"Error initializing: {e}")
       if hasattr(self, "kc"):
         self.kc.stop_channels()
       if hasattr(self, "km"):
         self.km.shutdown_kernel()
 
-  def check_kernel(self):
+  async def check_kernel(self):
     if self.code.kernel not in ALLOWED_KERNELS:
+      await self.slog('error', f'Unknown kernel: {self.code.kernel}')
       raise Exception(f'Unknown kernel: {self.code.kernel}')
     pass
 
@@ -62,7 +66,7 @@ class CodeV1(XmppAgent):
       logger.debug(f"prompt: {prompt}")
       content = ''
 
-      self.check_kernel()
+      await self.check_kernel()
 
       if re.match(self.regex_start, prompt):
         logger.debug("START command")
@@ -149,7 +153,8 @@ class CodeV1(XmppAgent):
       return content
 
     except Exception as e:
-      logger.error(f"CodeV1 error: {e}")
+      logger.error(f"Code error: {e}")
+      await self.slog('error', f"Code error: {e}")
       return f'Error: {str(e)}'
 
   async def disconnect(self):
@@ -160,5 +165,7 @@ class CodeV1(XmppAgent):
       await super().disconnect()
       self.kc.stop_channels()
       self.km.shutdown_kernel()
+      await self.slog('info', 'Disconnected')
     except Exception as e:
+      await self.slog('error', f"Disconnect error: {e}")
       logger.error(f"Disconnect error: {e}")

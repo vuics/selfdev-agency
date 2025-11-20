@@ -61,8 +61,11 @@ class QuantumV1(XmppAgent):
       logger.debug(f'Backend: {self.backend}')
       logger.debug(f'Backend coupling_map: {self.backend.coupling_map}')
 
+      await self.slog('debug', 'Agent started')
+
     except Exception as e:
       logger.error(f"Error initializing model: {e}")
+      await self.slog('error', f"Error initializing model: {e}")
 
   async def chat(self, *, prompt, reply_func=None):
     try:
@@ -115,4 +118,5 @@ class QuantumV1(XmppAgent):
       return content
     except Exception as e:
       logger.error(f"Quantum error: {e}")
+      await self.slog('error', f"Quantum error: {e}")
       return f'Error: {str(e)}'

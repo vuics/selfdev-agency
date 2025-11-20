@@ -26,6 +26,7 @@ class NoderedV1(XmppAgent):
   '''
   async def start(self):
     await super().start()
+    await self.slog('debug', 'Agent started')
 
   async def chat(self, *, prompt, reply_func=None):
     try:
@@ -68,25 +69,21 @@ class NoderedV1(XmppAgent):
       return response.text
 
     except httpx.RequestError as e:
+      await self.slog('error', f"Error making API request: {e}")
       logger.error(f"Error making API request: {e}")
       return f'Error making API request: {str(e)}'
 
     except httpx.HTTPStatusError as e:
+      await self.slog('error', f"HTTP error response: {e.response.status_code} - {e.response.text}")
       logger.error(f"HTTP error response: {e.response.status_code} - {e.response.text}")
       return f'HTTP error response: {e.response.status_code} - {e.response.text}'
 
     except ValueError as e:
+      await self.slog('error', f"Error parsing response: {e}")
       logger.error(f"Error parsing response: {e}")
       return f'Error parsing response: {str(e)}'
 
     except Exception as e:
+      await self.slog('error', f"Chat error: {e}")
       logger.error(f"Chat error: {e}")
       return f'Error: {str(e)}'
-
-  # def extract_response(self, response_text: str) -> str:
-  #   try:
-  #     extracted = json.loads(response_text)
-  #     logger.debug(f'Extracted: {extracted}')
-  #     return extracted
-  #   except (KeyError, IndexError, TypeError, json.JSONDecodeError) as e:
-  #     return f"Error extracting message: {str(e)}"

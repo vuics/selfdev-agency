@@ -39,16 +39,22 @@ class TtsV1(XmppAgent):
           base_url=SPEACHES_BASE_URL,
         )
       else:
+        await self.slog('error', "Unknown model provider")
         raise Exception(f"Unknown model provider: {self.config.options.tts.model.provider}")
+
       logger.debug(f"Client initialized: {self.client}")
+      await self.slog('debug', 'Agent started')
+
     except Exception as e:
-      logger.error(f"Error initializing model: {e}")
+      logger.error(f"Error initializing client: {e}")
+      await self.slog('error', f"Error initializing client: {e}")
 
   async def chat(self, *, prompt, reply_func=None):
     try:
       logger.debug(f"Received prompt: {prompt}")
 
       if not self.client:
+        await self.slog('error', "Client was not initialized")
         raise Exception("Client was not initialized")
 
       if self.config.options.tts.model.provider in ['openai', 'speaches']:
@@ -64,6 +70,7 @@ class TtsV1(XmppAgent):
         filename = f"speech.{self.config.options.tts.format}"
         content_type = self.get_content_type(self.config.options.tts.format)
       else:
+        await self.slog('error', "Unknown model provider")
         raise Exception(f"Unknown model provider: {self.config.options.tts.model.provider}")
 
       get_url = await self.upload_file(

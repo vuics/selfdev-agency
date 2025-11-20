@@ -65,10 +65,14 @@ class StorageV1(XmppAgent):
         self.storages = self.db["storages"]
       else:
         raise Exception('Unknown storage driver')
+        await self.slog('error', 'Unknown storage driver')
 
       logger.debug(f"self.client: {self.client}")
+      await self.slog('debug', 'Agent started')
+
     except Exception as e:
-      logger.error(f"Error initializing model: {e}")
+      logger.error(f"Error initializing: {e}")
+      await self.slog('error', f"Error initializing: {e}")
 
   async def chat(self, *, prompt, reply_func=None):
     try:
@@ -321,5 +325,7 @@ class StorageV1(XmppAgent):
       logger.debug("Disconnecting from MongoDB...")
       await self.client.close()
       logger.info("Disconnected from MongoDB")
+      await self.slog('debug', "Disconnected from MongoDB")
     except Exception as e:
       logger.error(f"Disconnect error: {e}")
+      await self.slog('debug', f"Disconnect error: {e}")

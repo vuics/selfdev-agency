@@ -25,16 +25,22 @@ class ImagegenV1(XmppAgent):
           api_key=self.config.options.imagegen.model.apiKey or None,
         )
       else:
+        await self.slog('error', f"Unknown model provider: {self.config.options.imagegen.model.provider}")
         raise Exception(f"Unknown model provider: {self.config.options.imagegen.model.provider}")
+
       logger.debug(f"Client initialized: {self.client}")
+      await self.slog('debug', 'Agent started')
+
     except Exception as e:
       logger.error(f"Error initializing model: {e}")
+      await self.slog('error', f"Error initializing model: {e}")
 
   async def chat(self, *, prompt, reply_func=None):
     try:
       logger.debug(f"Received prompt: {prompt}")
 
       if not self.client:
+        await self.slog('error', "Client was not initialized")
         raise Exception("Client was not initialized")
 
       if self.config.options.imagegen.model.provider == 'openai':
@@ -69,8 +75,10 @@ class ImagegenV1(XmppAgent):
         return content
 
       else:
+        await self.slog('error', f"Unknown model provider: {self.config.options.imagegen.model.provider}")
         raise Exception(f"Unknown model provider: {self.config.options.imagegen.model.provider}")
 
     except Exception as e:
       logger.error(f"Imagegen error: {e}")
+      await self.slog('error', f"Imagegen error: {e}")
       return f"Error: {str(e)}"

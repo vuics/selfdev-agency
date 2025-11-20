@@ -36,9 +36,14 @@ class AvatarV1(XmppAgent):
       if self.config.options.avatar.model.provider == 'sadtalker':
         pass
       else:
+        await self.slog('error', f"Unknown model provider: {self.config.options.avatar.model.provider}")
         raise Exception(f"Unknown model provider: {self.config.options.avatar.model.provider}")
+
       logger.debug(f"Client initialized: {self.client}")
+      await self.slog('debug', 'Agent started')
+
     except Exception as e:
+      await self.slog('error', f"Error initializing model: {e}")
       logger.error(f"Error initializing model: {e}")
 
   async def chat(self, *, prompt, reply_func=None):
@@ -123,6 +128,7 @@ class AvatarV1(XmppAgent):
           logger.debug(f"content: {content}")
 
       else:
+        await self.slog('error', f"Unknown model provider: {self.config.options.avatar.model.provider}")
         raise Exception(f"Unknown model provider: {self.config.options.avatar.model.provider}")
 
       self.file_manager.clear()
@@ -130,4 +136,5 @@ class AvatarV1(XmppAgent):
       return content
     except Exception as e:
       logger.error(f"Avatar error: {e}")
+      await self.slog('error', f"Avatar error: {e}")
       return f"Error: {str(e)}"

@@ -103,6 +103,7 @@ class RagV1(XmppAgent):
       logger.debug(f'regex_delete: {self.regex_delete}')
     except Exception as e:
       logger.error(f"Error initializing commands: {e}")
+      await self.slog('error', f"Error initializing commands: {e}")
 
     # Load LLM and embeddings
     try:
@@ -114,6 +115,7 @@ class RagV1(XmppAgent):
       logger.debug(f"self.model: {self.model}")
     except Exception as e:
       logger.error(f"Error initializing model: {e}")
+      await self.slog('error', f"Error initializing model: {e}")
 
     try:
       self.embeddings = init_embeddings(
@@ -123,6 +125,7 @@ class RagV1(XmppAgent):
       )
     except Exception as e:
       logger.error(f"Error initializing embeddings model: {e}")
+      await self.slog('error', f"Error initializing embeddings model: {e}")
 
     # Load vector store
     self.vector_store = None
@@ -140,6 +143,7 @@ class RagV1(XmppAgent):
                                    embedding_function=self.embeddings)
       except Exception as e:
         logger.error(f"Error creating Chroma client: {e}")
+        await self.slog('error', f"Error creating Chroma client: {e}")
         raise
     elif self.config.options.rag.vectorStore == "chroma-dir":
       try:
@@ -150,6 +154,7 @@ class RagV1(XmppAgent):
                                    embedding_function=self.embeddings)
       except Exception as e:
         logger.error(f"Error creating Chroma client: {e}")
+        await self.slog('error', f"Error creating Chroma client: {e}")
         raise
     elif self.config.options.rag.vectorStore == "weaviate":
       try:
@@ -164,8 +169,10 @@ class RagV1(XmppAgent):
         self.vector_store = WeaviateVectorStore.from_documents([], self.embeddings, client=weaviate_client)  # , tenant=WEAVIATE_TENANT)
       except Exception as e:
         logger.error(f"Error creating Weaviate client: {e}")
+        await self.slog('error', f"Error creating Weaviate client: {e}")
         raise
     else:
+      await self.slog('error', f"Unknown vector store: {self.config.options.rag.vectorStore}")
       raise Exception(f"Unknown vector store: {self.config.options.rag.vectorStore}")
 
     # Document Loaders
@@ -234,6 +241,7 @@ class RagV1(XmppAgent):
         docs += docs_loaded
 
     logger.info(f"Total documents loaded: {len(docs)}")
+    await self.slog('info', f"Total documents loaded: {len(docs)}")
 
     # Retrieval Augmented Generation (RAG)
 
@@ -248,6 +256,9 @@ class RagV1(XmppAgent):
     graph_builder.add_edge(START, "retrieve")
     self.graph = graph_builder.compile()
     logger.info('Graph compiled')
+    await self.slog('info', 'Graph compiled')
+
+    await self.slog('debug', 'Agent started')
 
   def add_docs(self, docs):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
@@ -273,7 +284,8 @@ class RagV1(XmppAgent):
       logger.debug(f"prompt: {prompt}")
 
       if not hasattr(self, 'graph'):
-        raise "I am not ready while loading documents."
+        await self.slog('warn', "Not ready while loading documents")
+        raise "Not ready while loading documents"
 
       if self.file_manager.is_shared_file_url(prompt):
         return self.file_manager.add_file_url(prompt)
@@ -367,4 +379,5 @@ class RagV1(XmppAgent):
 
     except Exception as e:
       logger.error(f"chat error: {e}")
+      await self.slog('error', f"chat error: {e}")
       return f"Error: {str(e)}"

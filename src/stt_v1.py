@@ -42,15 +42,20 @@ class SttV1(XmppAgent):
         )
       else:
         raise Exception(f"Unknown model provider: {self.config.options.stt.model.provider}")
+
       logger.debug(f"Client initialized: {self.client}")
+      await self.slog('debug', 'Agent started')
+
     except Exception as e:
-      logger.error(f"Error initializing model: {e}")
+      logger.error(f"Error initializing client: {e}")
+      await self.slog('error', f"Error initializing client: {e}")
 
   async def chat(self, *, prompt, reply_func=None):
     try:
       logger.debug(f"Received prompt: {prompt}")
 
       if not self.client:
+        await self.slog('error', "Client was not initialized")
         raise Exception("Client was not initialized")
 
       if self.file_manager.is_shared_file_url(prompt):
@@ -79,10 +84,12 @@ class SttV1(XmppAgent):
           logger.debug(f"openai result: {result}")
           content += result.text
         else:
+          await self.slog('error', "Unknown model provider")
           raise Exception(f"Unknown model provider: {self.config.options.stt.model.provider}")
 
       self.file_manager.clear()
       return content
     except Exception as e:
       logger.error(f"Stt error: {e}")
+      await self.slog('error', f"Stt error: {e}")
       return f"Error: {str(e)}"

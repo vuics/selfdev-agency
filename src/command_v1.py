@@ -113,6 +113,7 @@ class CommandV1(XmppAgent):
       execute=self.config.options.command.execute,
       shell=self.config.options.command.shell,
     )
+    await self.slog('debug', 'Agent started')
 
   async def chat(self, *, prompt, reply_func=None):
     try:
@@ -127,4 +128,5 @@ class CommandV1(XmppAgent):
       return output
     except Exception as e:
       logger.error(f"Chat error: {e}")
+      await self.slog('error', f"Chat error: {e}")
       return f'Error: {str(e)}'

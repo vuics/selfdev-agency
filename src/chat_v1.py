@@ -44,6 +44,10 @@ class ChatV1(XmppAgent):
         api_key=self.config.options.chat.model.apiKey or None,
       )
       logger.debug(f"Model initialized: {self.model}")
+      await self.slog('debug', 'Model initialized', {
+        "model_provider": self.config.options.chat.model.provider,
+        "model_name": self.config.options.chat.model.name,
+      })
 
       if self.config.options.chat.session:
         logger.info(f"Message history enabled with session: {self.config.options.chat.session}")
@@ -59,8 +63,10 @@ class ChatV1(XmppAgent):
           session_id=session_id,
         )
 
+      await self.slog('debug', 'Agent started')
     except Exception as e:
       logger.error(f"Error initializing model: {e}")
+      await self.slog('error', f'Error initializing model: {e}')
 
   async def chat(self, *, prompt, reply_func=None):
     try:
@@ -111,4 +117,5 @@ class ChatV1(XmppAgent):
 
     except Exception as e:
       logger.error(f"Chat error: {e}")
+      await self.slog('error', f'Chat error: {e}')
       return f"Error: {str(e)}"

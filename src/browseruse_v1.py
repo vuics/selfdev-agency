@@ -362,8 +362,6 @@ class BrowseruseV1(XmppAgent):
   '''
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
-    # self.file_manager = FileManager()
-    # self.chat_history = None  # Will initialize per session
 
   async def start(self):
     await super().start()
@@ -376,9 +374,11 @@ class BrowseruseV1(XmppAgent):
         api_key=self.config.options.browseruse.model.apiKey or None,
       )
       logger.debug(f"Model initialized: {self.model}")
-    except Exception as e:
-      logger.error(f"Error initializing model: {e}")
+      await self.slog('debug', 'Agent started')
 
+    except Exception as e:
+      await self.slog('error', f"Error initializing model: {e}")
+      logger.error(f"Error initializing model: {e}")
 
   async def chat(self, *, prompt, reply_func=None):
     try:
@@ -417,6 +417,6 @@ class BrowseruseV1(XmppAgent):
       return final_result
 
     except Exception as e:
+      await self.slog('error', f"Chat error: {e}")
       logger.error(f"Chat error: {e}")
       return f"Error: {str(e)}"
-

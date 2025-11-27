@@ -9,7 +9,6 @@ from prometheus_client import CollectorRegistry, push_to_gateway
 
 load_dotenv()
 
-# PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://prometheus:9090")
 PROMETHEUS_PUSHGATEWAY_URL = os.getenv("PROMETHEUS_PUSHGATEWAY_URL", 'http://pushgateway:9091')
 PROMETHEUS_PUSH_INTERVAL_SEC = int(os.getenv("PROMETHEUS_PUSH_INTERVAL_SEC", "30"))
 

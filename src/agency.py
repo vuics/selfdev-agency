@@ -566,8 +566,8 @@ async def sync_agents(db):
   # Stop agents that should no longer be running
   for agent_id in list(running_agents.keys()):
     if agent_id not in should_run:
-      logger.info(f'⏹️ Stop agent: {config.id}:{config.name}')
-      await stop_agent(agent_id, running_agents[agent_id].name)
+      logger.info(f'⏹️ Stop agent: {agent_id}:{running_agents[agent_id].config.name}')
+      await stop_agent(agent_id, running_agents[agent_id].config.name)
   logger.debug(f'🐣 AFTER: running_agents: {running_agents}')
 
 

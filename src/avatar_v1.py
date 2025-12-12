@@ -39,7 +39,6 @@ class AvatarV1(XmppAgent):
         await self.slog('error', f"Unknown model provider: {self.config.options.avatar.model.provider}")
         raise Exception(f"Unknown model provider: {self.config.options.avatar.model.provider}")
 
-      logger.debug(f"Client initialized: {self.client}")
       await self.slog('debug', 'Agent started')
 
     except Exception as e:
@@ -135,6 +134,7 @@ class AvatarV1(XmppAgent):
       # logger.debug(f"return content: {content}")
       return content
     except Exception as e:
+      self.file_manager.clear()
       logger.error(f"Avatar error: {e}")
       await self.slog('error', f"Avatar error: {e}")
       return f"Error: {str(e)}"

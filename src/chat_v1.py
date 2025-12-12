@@ -41,7 +41,7 @@ class ChatV1(XmppAgent):
       self.model = init_model(
         model_provider=self.config.options.chat.model.provider,
         model_name=self.config.options.chat.model.name,
-        api_key=self.config.options.chat.model.apiKey or None,
+        api_key=getattr(self.config.options.chat.model, "apiKey", None),
       )
       logger.debug(f"Model initialized: {self.model}")
       await self.slog('debug', 'Model initialized', {

@@ -13,7 +13,7 @@ langchain-community==0.3.17
 langchain-text-splitters==0.3.6
 langchain-google-community[drive]==2.0.4
 langchain-googledrive==0.3.35
-langchain-chroma==0.2.2
+langchain-chroma==0.2.6
 langchain-unstructured==0.1.6
 langgraph==0.2.72
 tiktoken==0.9.0
@@ -25,7 +25,7 @@ google-api-python-client==2.161.0
 google-auth-httplib2==0.2.0
 google-auth-oauthlib==1.2.1
 python-magic==0.4.27
-chromadb==0.6.3
+chromadb==1.0.20
 weaviate-client==4.10.4
 langchain-weaviate==0.0.4
 libmagic==1.0

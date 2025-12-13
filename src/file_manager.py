@@ -26,8 +26,9 @@ logger = logging.getLogger("FileManager")
 
 load_dotenv()
 
-SHARE_URL_PREFIX = os.getenv("SHARE_URL_PREFIX", "https://selfdev-prosody.dev.local:5281/file_share/")
-SHARE_URL_REGEX = re.compile(f"^{re.escape(SHARE_URL_PREFIX)}")
+XMPP_SHARE_URL_PREFIX = os.getenv("XMPP_SHARE_URL_PREFIX", "https://selfdev-prosody.dev.local:5281/file_share/")
+XMPP_SHARE_URL_REGEX = re.compile(f"^{re.escape(XMPP_SHARE_URL_PREFIX)}")
+API_FILES_URL = os.getenv("API_FILES_URL", "https://selfdev-prosody.dev.local:5281/file_share/")
 
 # FIXME: Set verify=True to check the certificates
 SSL_VERIFY = str_to_bool(os.getenv("SSL_VERIFY", "true"))
@@ -42,7 +43,7 @@ class FileManager:
 
   def is_shared_file_url(self, prompt):
     try:
-      if re.match(SHARE_URL_REGEX, prompt):
+      if re.match(XMPP_SHARE_URL_REGEX, prompt):
         # logger.debug("Prompt is a file URL.")
         return True
       return False
@@ -72,8 +73,9 @@ class FileManager:
 
       # TODO: Develop support for TLS certifictes for verify=True
       logger.debug(f"SSL_VERIFY: {SSL_VERIFY}")
-      response = httpx.get(url, verify=SSL_VERIFY)
-
+      url1 = url.replace(XMPP_SHARE_URL_PREFIX, API_FILES_URL)
+      logger.debug(f'Replace url: {url} with url1: {url1}')
+      response = httpx.get(url1, verify=SSL_VERIFY)
       # logger.debug(f"response: {response}")
       response.raise_for_status()
       file_bytes = response.content
@@ -81,6 +83,7 @@ class FileManager:
       return file_bytes
     except Exception as e:
       logger.error(f"Error downloading file from {url}: {e}")
+      raise e
 
   def get_files_bytes(self):
     files_bytes = list(map(self.fetch_bytes_from_url, self.file_urls))

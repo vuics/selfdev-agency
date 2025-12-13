@@ -30,6 +30,9 @@ XMPP_CONNECT_HOST = os.getenv("XMPP_CONNECT_HOST", "")
 XMPP_CONNECT_PORT = int(os.getenv("XMPP_CONNECT_PORT", "5222"))
 XMPP_RECONNECT_MAX_DELAY = int(os.getenv("XMPP_RECONNECT_MAX_DELAY", "300"))
 XMPP_SHARE_HOST = os.getenv("XMPP_SHARE_HOST", "share.localhost")
+XMPP_SHARE_URL_PREFIX = os.getenv("XMPP_SHARE_URL_PREFIX", "https://selfdev-prosody.dev.local:5281/file_share/")
+API_FILES_URL = os.getenv("API_FILES_URL", "https://selfdev-prosody.dev.local:5281/file_share/")
+
 
 # FIXME: Set verify=True to check the certificates
 SSL_VERIFY = str_to_bool(os.getenv("SSL_VERIFY", "true"))
@@ -409,8 +412,8 @@ class XmppAgent(ClientXMPP):
 
       put_url = put_el.attrib.get("url") if put_el is not None else None
       get_url = get_el.attrib.get("url") if get_el is not None else None
-      # logging.debug(f"PUT URL: {put_url}")
-      # logging.debug(f"GET URL: {get_url}")
+      logging.debug(f"PUT URL: {put_url}")
+      logging.debug(f"GET URL: {get_url}")
 
       auth_token = None
       if put_el is not None:
@@ -425,11 +428,12 @@ class XmppAgent(ClientXMPP):
         headers['Authorization'] = auth_token
       async with ClientSession() as session:
         file_iobytes.seek(0)
-        async with session.put(put_url, data=file_iobytes, headers=headers, ssl=SSL_VERIFY) as resp:
+        put_url1 = put_url.replace(XMPP_SHARE_URL_PREFIX, API_FILES_URL)
+        logger.debug(f'Replace put_url: {put_url} with put_url1: {put_url1}')
+        async with session.put(put_url1, data=file_iobytes, headers=headers, ssl=SSL_VERIFY) as resp:
           if resp.status not in (200, 201):
             text = await resp.text()
             raise Exception(f"Upload failed with status {resp.status}: {text}")
-
       return get_url
     except Exception as e:
       logging.error(f"Error uploading file: {e}")

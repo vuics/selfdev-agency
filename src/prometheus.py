@@ -7,6 +7,8 @@ import asyncio
 from dotenv import load_dotenv
 from prometheus_client import CollectorRegistry, push_to_gateway
 
+from conf import has_profile
+
 load_dotenv()
 
 PROMETHEUS_PUSHGATEWAY_URL = os.getenv("PROMETHEUS_PUSHGATEWAY_URL", 'http://pushgateway:9091')
@@ -21,10 +23,11 @@ prometheus_registry = CollectorRegistry()
 
 async def push_metrics_async():
   """Push metrics once (async wrapper around push_to_gateway)."""
+  if not has_profile(['all', 'h9y', 'metrics']):
+    return None
   # push_to_gateway is blocking, so run it in a thread pool executor
   # to avoid blocking the event loop
   loop = asyncio.get_running_loop()
-
   try:
     await loop.run_in_executor(
       None,
@@ -41,6 +44,8 @@ async def push_metrics_async():
 
 async def prometheus_pusher():
   """Async loop similar to setInterval in Node.js."""
+  if not has_profile(['all', 'h9y', 'metrics']):
+    return None
   while True:
     logger.debug('Pushing metrics to Prometheus gateway')
     await push_metrics_async()

@@ -1,9 +1,13 @@
+''' OpenSearch '''
 import os
 import logging
 from datetime import datetime
+
 from dotenv import load_dotenv
 from opensearchpy import AsyncOpenSearch
+
 from helpers import str_to_bool
+from conf import has_profile
 
 logger = logging.getLogger("opensearch")
 logger.setLevel(logging.DEBUG)
@@ -26,6 +30,8 @@ async def connect_to_opensearch() -> AsyncOpenSearch:
   Initialize AsyncOpenSearch client. Call once at agent startup.
   """
   global async_opensearch
+  if not has_profile(['all', 'h9y', 'logs']):
+    return None
   try:
     if async_opensearch is not None:
       logger.debug("AsyncOpenSearch client already exists.")
@@ -57,6 +63,8 @@ async def disconnect_from_opensearch():
   Close the async OpenSearch client when shutting down the agent.
   """
   global async_opensearch
+  if not has_profile(['all', 'h9y', 'logs']):
+    return None
   if async_opensearch is not None:
     await async_opensearch.close()
     async_opensearch = None
@@ -68,6 +76,8 @@ async def send_log(level: str, message: str, meta: dict = None):
   Send a log document to OpenSearch asynchronously.
   """
   global async_opensearch
+  if not has_profile(['all', 'h9y', 'logs']):
+    return None
   if async_opensearch is None:
     logger.error("AsyncOpenSearch client is not initialized.")
     # await connect_to_opensearch()
@@ -91,4 +101,3 @@ async def send_log(level: str, message: str, meta: dict = None):
     logger.debug(f"Log sent: {doc}")
   except Exception as e:
     logger.error("Failed to send async log: %s", e)
-

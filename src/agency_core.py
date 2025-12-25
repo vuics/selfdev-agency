@@ -94,7 +94,7 @@ def offset_time(time_at, delta_symbol):
   # If updatedAt comes as string (ISO 8601)
   if isinstance(time_at, str):
     time_at = datetime.fromisoformat(time_at.replace('Z', '+00:00'))
-  if delta_symbol == 'forever':
+  if not delta_symbol:
     return None  # or datetime.max if you prefer
   DELTA_MAP = {
     '1m': timedelta(minutes=1),
@@ -122,7 +122,7 @@ class AgentConfig:
     self.archetype = doc.get('archetype', None)
     self.options = Box(doc.get('options', {}))
     self.updatedAt = doc.get('updatedAt', None)
-    self.expire = self.options.get('expire', 'forever')
+    self.expire = self.options.get('expire', '')
     self.undeployAt = offset_time(self.updatedAt, self.expire)
 
     self.name = self.options.name

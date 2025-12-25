@@ -439,6 +439,13 @@ class XmppAgent(ClientXMPP):
       logging.error(f"Error uploading file: {e}")
       return None
 
-  async def disconnect(self):
-    pass
-
+  async def stop(self):
+    await self.slog('info', 'Stopping agent')
+    logger.debug('Disconnecting the agent from xmpp...')
+    super().send_presence(
+      ptype='unavailable',
+      pshow='offline',
+      pstatus='Agent stopped'
+    )
+    super().disconnect(wait=True)
+    logger.info('Disconnected the agent from xmpp')

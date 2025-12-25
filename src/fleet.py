@@ -44,6 +44,8 @@ import json
 import signal
 import time
 import traceback
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
 import uuid
 from typing import Dict, Any, List, Optional, Type
@@ -53,27 +55,14 @@ from pymongo.errors import ConnectionFailure
 import redis.asyncio as redis
 from box import Box
 import hvac
-from opensearch import connect_to_opensearch, disconnect_from_opensearch
+from bson import ObjectId
 
 from helpers import str_to_bool
 from xmpp_agent import XmppAgent
+from opensearch import connect_to_opensearch, disconnect_from_opensearch
 from prometheus import prometheus_pusher
 
 # Import agent classes
-# from chat_v1 import ChatV1
-# from rag_v1 import RagV1
-# from stt_v1 import SttV1
-# from tts_v1 import TtsV1
-# from imagegen_v1 import ImagegenV1
-# from code_v1 import CodeV1
-# from quantum_v1 import QuantumV1
-# from storage_v1 import StorageV1
-# from command_v1 import CommandV1
-# from langflow_v1 import LangflowV1
-# from nodered_v1 import NoderedV1
-# from n8n_v1 import N8nV1
-# from notebook_v1 import NotebookV1
-# from avatar_v1 import AvatarV1
 from browseruse_v1 import BrowseruseV1
 
 # Load environment variables
@@ -125,20 +114,6 @@ logging.getLogger("httpcore").setLevel(logging.INFO)
 
 # Map of agent class names to their actual classes
 ARCHETYPE_CLASSES = {
-  # "chat-v1.0": ChatV1,
-  # "rag-v1.0": RagV1,
-  # "stt-v1.0": SttV1,
-  # "tts-v1.0": TtsV1,
-  # "imagegen-v1.0": ImagegenV1,
-  # "code-v1.0": CodeV1,
-  # "quantum-v1.0": QuantumV1,
-  # "storage-v1.0": StorageV1,
-  # "command-v1.0": CommandV1,
-  # "langflow-v1.0": LangflowV1,
-  # "nodered-v1.0": NoderedV1,
-  # "n8n-v1.0": N8nV1,
-  # "notebook-v1.0": NotebookV1,
-  # "avatar-v1.0": AvatarV1,
   "browseruse-v1.0": BrowseruseV1,
 }
 
@@ -150,6 +125,28 @@ redis_client = None
 
 # HashiCorp Vault client for secrets ({ valueFromVault: "vaultKey" })
 vault_client = None
+
+
+def offset_time(time_at, delta_symbol):
+  if time_at is None:
+    return None
+  # If updatedAt comes as string (ISO 8601)
+  if isinstance(time_at, str):
+    time_at = datetime.fromisoformat(time_at.replace('Z', '+00:00'))
+  if delta_symbol == 'forever':
+    return None  # or datetime.max if you prefer
+  DELTA_MAP = {
+    '1m': timedelta(minutes=1),
+    '1h': timedelta(hours=1),
+    '12h': timedelta(hours=12),
+    '1d': timedelta(days=1),
+    '1w': timedelta(weeks=1),
+    '1mo': relativedelta(months=1),
+  }
+  delta = DELTA_MAP.get(delta_symbol)
+  if not delta:
+    raise ValueError(f"Unknown delta_symbol: {delta_symbol}")
+  return time_at + delta
 
 
 class AgentConfig:
@@ -164,6 +161,9 @@ class AgentConfig:
     self.archetype = doc.get('archetype', None)
     self.options = Box(doc.get('options', {}))
     self.updatedAt = doc.get('updatedAt', None)
+    self.expire = self.options.get('expire', 'forever')
+    self.undeployAt = offset_time(self.updatedAt, self.expire)
+
     self.name = self.options.name
     self.joinRooms = self.options.joinRooms
     self.replace_vault_values(self.options)
@@ -173,6 +173,26 @@ class AgentConfig:
     return bool(self.deployed and
                 self.archetype in ARCHETYPE_CLASSES and
                 (True if not FILTER_ARCHETYPES else self.archetype in FILTER_ARCHETYPES))
+
+  async def undeploy_expired(self, db):
+    now = datetime.utcnow()
+    # logger.debug('undeploy_expired')
+    # logger.debug(f'expire: {self.expire}')
+    # logger.debug(f'undeployAt: {self.undeployAt}')
+    # logger.debug(f'now: {now}')
+    if self.undeployAt and self.deployed and now >= self.undeployAt:
+      logger.info(f'Undeploying expired agent={self.id}:{self.name} after {self.expire} of deployment')
+      self.deployed = False
+      await db.agents.update_one({
+        "_id": ObjectId(self.id),
+      }, {
+        "$set": {
+          "deployed": self.deployed,
+          "updatedAt": now,          # update every time
+        },
+      })
+      return True
+    return False
 
   def __str__(self) -> str:
     return f"{self.id}:{self.name}({self.archetype})"
@@ -523,7 +543,7 @@ async def stop_agent(agent_id: str, agent_name: str):
   if agent_id in running_agents:
     try:
       agent = running_agents[agent_id]
-      await agent.disconnect()
+      await agent.stop()
       del running_agents[agent_id]
       logger.info(f"Stopped agent: {agent_id}:{agent_name}")
 
@@ -546,7 +566,9 @@ async def sync_agents(db):
   # Start new agents or update existing ones
   for config in configs:
     if config.is_valid():
-      should_run[config.id] = config
+      expired = await config.undeploy_expired(db)
+      if not expired:
+        should_run[config.id] = config
 
       if config.id not in running_agents:
         # Start new agent

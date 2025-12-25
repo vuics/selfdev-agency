@@ -157,12 +157,12 @@ class CodeV1(XmppAgent):
       await self.slog('error', f"Code error: {e}")
       return f'Error: {str(e)}'
 
-  async def disconnect(self):
+  async def stop(self):
     """
     Release resources
     """
     try:
-      await super().disconnect()
+      await super().stop()
       self.kc.stop_channels()
       self.km.shutdown_kernel()
       await self.slog('info', 'Disconnected')

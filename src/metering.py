@@ -17,10 +17,13 @@ load_dotenv(find_dotenv())
 
 STRIPE_ENABLE = str_to_bool(os.getenv("STRIPE_ENABLE", "False"))
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
-if STRIPE_ENABLE and (STRIPE_SECRET_KEY is None):
-  raise ValueError("STRIPE_SECRET_KEY environment variable is not set")
 
-stripe_client = StripeClient(api_key=STRIPE_SECRET_KEY, stripe_version='2024-09-30.acacia')
+stripe_client = None
+if STRIPE_ENABLE:
+  if STRIPE_SECRET_KEY is None:
+    raise ValueError("STRIPE_SECRET_KEY environment variable is not set")
+  else:
+    stripe_client = StripeClient(api_key=STRIPE_SECRET_KEY, stripe_version='2024-09-30.acacia')
 
 
 def meter_event(*, event_name, customerId, value=1):

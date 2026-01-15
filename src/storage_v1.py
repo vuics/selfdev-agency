@@ -267,10 +267,11 @@ class StorageV1(XmppAgent):
       elif match := re.match(self.regex_save, prompt):
         key = match.group("key")
         filename = match.groupdict().get("filename")
+        # logger.debug(f"filename: {filename}")
         if not filename:
           filename = f"{key}.txt"
         default = match.groupdict().get("default")
-        logger.debug(f"SAVE command with key: {key}, default: {default}")
+        logger.debug(f"SAVE command with key: {key}, filename: {filename}, default: {default}")
         doc = await self.storages.find_one({
           "userId": ObjectId(self.config.userId),
           "namespace": self.storage.namespace,
@@ -278,17 +279,8 @@ class StorageV1(XmppAgent):
         })
         if doc:
           file_bytes = doc["value"].encode('utf-8')
-          content = "Saved value"
         elif default is not None:
           file_bytes = default.encode('utf-8')
-          content = "Saved default value"
-        else:
-          if self.storage.verbose == 2:
-            content = f"No entry found for key '{key}'."
-          elif self.storage.verbose == 1:
-            content = "NOT_FOUND"
-          else:
-            content = " "
 
         if file_bytes:
           get_url = await self.upload_file(
@@ -299,6 +291,18 @@ class StorageV1(XmppAgent):
           logger.info(f"get_url: {get_url}")
           if reply_func:
             reply_func(get_url)
+
+        if doc:
+          content = f"Saved value to {get_url}"
+        elif default is not None:
+          content = f"Saved default value to {get_url}"
+        else:
+          if self.storage.verbose == 2:
+            content = f"No entry found for key '{key}'."
+          elif self.storage.verbose == 1:
+            content = "NOT_FOUND"
+          else:
+            content = " "
 
       else:
         logger.warning("No valid command match")
